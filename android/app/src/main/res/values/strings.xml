@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Qchat</string>
+    <string name="background_sync_channel">后台消息同步</string>
+    <string name="background_sync_channel_desc">Qchat 在后台持续接收新消息</string>
+    <string name="background_sync_title">Qchat 消息同步</string>
+    <string name="background_sync_text">正在后台接收新消息</string>
+</resources>
