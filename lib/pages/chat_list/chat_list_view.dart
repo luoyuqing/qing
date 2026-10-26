@@ -1,3 +1,4 @@
+import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 // SPDX-FileCopyrightText: 2019-Present Christian Kußowski
 // SPDX-FileCopyrightText: 2019-Present Contributors to FluffyChat
 //
@@ -71,6 +72,9 @@ class ChatListView extends StatelessWidget {
                 backgroundColor: oneColumnSpacesMode
                     ? Theme.of(context).colorScheme.surfaceContainer
                     : null,
+                bottomNavigationBar: FluffyThemes.isColumnMode(context)
+                    ? null
+                    : const QingBottomNav(currentIndex: 0),
                 body: SafeArea(
                   top: oneColumnSpacesMode,
                   bottom: false,

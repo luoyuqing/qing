@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../widgets/mxc_image_viewer.dart';
+import '../../widgets/qing_bottom_nav.dart';
 import 'settings.dart';
 
 class SettingsView extends StatelessWidget {
@@ -32,6 +33,7 @@ class SettingsView extends StatelessWidget {
     ).routeInformationProvider.value.uri.path;
 
     return Scaffold(
+      bottomNavigationBar: const QingBottomNav(currentIndex: 4),
       appBar: AppBar(
         title: Text(L10n.of(context).settings),
         leading: Center(

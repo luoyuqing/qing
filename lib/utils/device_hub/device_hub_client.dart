@@ -95,6 +95,40 @@ class DeviceHubClient {
     return token;
   }
 
+  /// 只读 GET（简报 / 任务 / 记忆）
+  static Future<Map<String, dynamic>> getJson(
+    String path, {
+    Map<String, String>? query,
+  }) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final uri = Uri.parse('$base$path').replace(queryParameters: query);
+    final resp =
+        await http.get(uri, headers: _headers(authToken)).timeout(const Duration(seconds: 12));
+    if (resp.statusCode != 200) {
+      throw Exception('HTTP ${resp.statusCode}');
+    }
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// 勾选/取消待办
+  static Future<void> setTodoDone(int id, bool done) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .patch(
+          Uri.parse('$base/todos/$id'),
+          headers: _headers(authToken),
+          body: jsonEncode({'done': done}),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (resp.statusCode != 200) {
+      throw Exception('更新待办失败：HTTP ${resp.statusCode}');
+    }
+  }
+
   static Future<Map<String, dynamic>> _ingest(
     String kind,
     List<Map<String, dynamic>> items,
