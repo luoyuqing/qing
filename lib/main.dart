@@ -86,9 +86,6 @@ void main(List<String> args) => runZonedGuarded(() async {
       AppLifecycleState.detached == WidgetsBinding.instance.lifecycleState) {
     final clients = await ClientManager.getClients(store: store);
 
-  // 清助理：前台启动即开始长轮询，AI 需要数据时现场读取
-  DeviceHubPoller.start();
-
     // 清助理：后台引擎也启动按需取数应答器（AI 随时可能来要数据）
     DeviceHubPoller.start();
 
@@ -115,6 +112,9 @@ void main(List<String> args) => runZonedGuarded(() async {
   }
 
   final clients = await ClientManager.getClients(store: store);
+
+  // 清助理：前台启动即开始长轮询，AI 需要数据时现场读取
+  DeviceHubPoller.start();
 
   // Started in foreground mode.
   Logs().i(
