@@ -14,7 +14,6 @@ import 'package:fluffychat/pages/chat_list/space_view.dart';
 import 'package:fluffychat/utils/stream_extension.dart';
 import 'package:fluffychat/widgets/adaptive_dialogs/public_room_dialog.dart';
 import 'package:fluffychat/widgets/avatar.dart';
-import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -80,7 +79,6 @@ class ChatListViewBody extends StatelessWidget {
           controller: controller.scrollController,
           slivers: [
             ChatListHeader(controller: controller),
-            const SliverToBoxAdapter(child: QingTodayGlance()),
             SliverList(
               delegate: SliverChildListDelegate([
                 if (controller.isSearchMode) ...[
