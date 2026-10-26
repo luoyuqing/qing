@@ -2,11 +2,9 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 任务（仅办公小爱）
+/// 清助理 · 任务（办公小爱）
 ///
-/// 两个分区：
-///  - 会话：办公小爱的历史/进行中任务会话（读 Hermes state.db，只读）
-///  - 定时任务：Hermes cron jobs + 最近执行结果
+/// 顶部两个 Tab：最近会话 / 定时任务；点任意条目进入详情。
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
 
@@ -14,7 +12,8 @@ class TasksPage extends StatefulWidget {
   State<TasksPage> createState() => _TasksPageState();
 }
 
-class _TasksPageState extends State<TasksPage> {
+class _TasksPageState extends State<TasksPage> with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this);
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _sessions = const [];
@@ -26,6 +25,12 @@ class _TasksPageState extends State<TasksPage> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -33,7 +38,7 @@ class _TasksPageState extends State<TasksPage> {
     });
     try {
       final results = await Future.wait([
-        DeviceHubClient.getJson('/tasks/sessions', query: {'limit': '20'}),
+        DeviceHubClient.getJson('/tasks/sessions', query: {'limit': '30'}),
         DeviceHubClient.getJson('/routines'),
       ]);
       if (!mounted) return;
@@ -65,64 +70,80 @@ class _TasksPageState extends State<TasksPage> {
         actions: [
           IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
         ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(children: [
-                    const Icon(Icons.cloud_off, size: 40),
-                    const SizedBox(height: 12),
-                    const Text('读取失败'),
-                    const SizedBox(height: 8),
-                    Text(_error!,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 12),
-                    FilledButton.tonal(onPressed: _load, child: const Text('重试')),
-                  ]),
-                ),
-              )
-            else ...[
-              Text('最近的会话', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              if (_sessions.isEmpty)
-                Text('还没有会话记录', style: theme.textTheme.bodySmall)
-              else
-                for (final s in _sessions) _sessionCard(context, s),
-              const SizedBox(height: 20),
-              Text('定时任务', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              if (_routines.isEmpty)
-                Text('还没有定时任务', style: theme.textTheme.bodySmall)
-              else
-                for (final r in _routines) _routineCard(context, r),
-            ],
+        bottom: TabBar(
+          controller: _tabs,
+          tabs: [
+            Tab(text: '最近会话 · ${_sessions.length}'),
+            Tab(text: '定时任务 · ${_routines.length}'),
           ],
         ),
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _errorView(theme)
+              : TabBarView(
+                  controller: _tabs,
+                  children: [
+                    RefreshIndicator(
+                      onRefresh: _load,
+                      child: _sessions.isEmpty
+                          ? ListView(children: [_empty(theme, '还没有会话记录')])
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                              itemCount: _sessions.length,
+                              itemBuilder: (context, i) =>
+                                  _sessionCard(theme, _sessions[i]),
+                            ),
+                    ),
+                    RefreshIndicator(
+                      onRefresh: _load,
+                      child: _routines.isEmpty
+                          ? ListView(children: [_empty(theme, '还没有定时任务')])
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                              itemCount: _routines.length,
+                              itemBuilder: (context, i) =>
+                                  _routineCard(theme, _routines[i]),
+                            ),
+                    ),
+                  ],
+                ),
       bottomNavigationBar: const QingBottomNav(currentIndex: 2),
     );
   }
 
-  Widget _sessionCard(BuildContext context, Map<String, dynamic> s) {
-    final theme = Theme.of(context);
+  Widget _errorView(ThemeData theme) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.cloud_off, size: 40),
+            const SizedBox(height: 8),
+            const Text('读取失败'),
+            const SizedBox(height: 6),
+            Text(_error!, textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 12),
+            FilledButton.tonal(onPressed: _load, child: const Text('重试')),
+          ]),
+        ),
+      );
+
+  Widget _empty(ThemeData theme, String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 80),
+        child: Column(children: [
+          Icon(Icons.inbox_outlined, size: 40, color: theme.colorScheme.outline),
+          const SizedBox(height: 8),
+          Text(text, style: theme.textTheme.bodySmall),
+        ]),
+      );
+
+  Widget _sessionCard(ThemeData theme, Map<String, dynamic> s) {
     final name = '${s['name'] ?? ''}';
     final snippet = '${s['last_user_message'] ?? ''}';
-    final at = _formatTime(s['last_at']);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Icon(
@@ -130,48 +151,108 @@ class _TasksPageState extends State<TasksPage> {
             size: 20,
           ),
         ),
-        title: Text(
-          name.length > 40 ? '${name.substring(0, 40)}…' : name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: Text(name.length > 32 ? '${name.substring(0, 32)}…' : name,
+            maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              '${_formatTime(s['last_at'])} · ${s['message_count'] ?? 0} 条消息',
+              style: theme.textTheme.bodySmall,
+            ),
+            if (snippet.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(snippet,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium),
+            ],
+          ],
         ),
-        subtitle: Text(
-          '$at · ${s['message_count'] ?? 0} 条消息${snippet.isEmpty ? '' : '\n$snippet'}',
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall,
-        ),
-        isThreeLine: snippet.isNotEmpty,
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _sessionDetail(s),
       ),
     );
   }
 
-  Widget _routineCard(BuildContext context, Map<String, dynamic> r) {
-    final theme = Theme.of(context);
+  Widget _routineCard(ThemeData theme, Map<String, dynamic> r) {
     final enabled = r['enabled'] == true;
     final last = r['last_execution'];
-    final lastStatus = last is Map ? '${last['status'] ?? ''}' : '';
-    final statusColor = lastStatus.contains('completed')
+    final status = last is Map ? '${last['status'] ?? ''}' : '';
+    final color = status.contains('completed')
         ? Colors.green
-        : lastStatus.contains('fail')
+        : status.contains('fail')
             ? theme.colorScheme.error
             : theme.colorScheme.outline;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: Icon(
-          enabled ? Icons.schedule : Icons.pause_circle_outline,
-          color: enabled ? theme.colorScheme.primary : theme.colorScheme.outline,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Icon(enabled ? Icons.schedule : Icons.pause_circle_outline,
+            color: enabled ? theme.colorScheme.primary : theme.colorScheme.outline),
         title: Text('${r['name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${r['schedule'] ?? ''}${lastStatus.isEmpty ? '' : ' · 上次 $lastStatus'}',
+          '${r['schedule'] ?? ''}${status.isEmpty ? '' : ' · 上次 $status'}',
           style: theme.textTheme.bodySmall,
         ),
-        trailing: Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+        trailing: Icon(Icons.chevron_right, color: color),
+        onTap: () => _routineDetail(r),
+      ),
+    );
+  }
+
+  void _sessionDetail(Map<String, dynamic> s) {
+    _showDetail('会话详情', [
+      ('名称', '${s['name'] ?? ''}'),
+      ('类型', s['chat_type'] == 'group' ? '群聊' : '私聊'),
+      ('来源', '${s['source'] ?? ''}'),
+      ('消息数', '${s['message_count'] ?? 0}'),
+      ('最后活动', _formatTime(s['last_at'])),
+      ('最后一条用户消息', '${s['last_user_message'] ?? ''}'),
+    ]);
+  }
+
+  void _routineDetail(Map<String, dynamic> r) {
+    final last = r['last_execution'];
+    final rows = <(String, String)>[
+      ('名称', '${r['name'] ?? ''}'),
+      ('计划', '${r['schedule'] ?? ''}'),
+      ('状态', r['enabled'] == true ? '已启用' : '已暂停'),
+      ('任务内容', '${r['prompt'] ?? ''}'),
+      if (last is Map) ('上次执行', '${last['status'] ?? ''} · ${last['started_at'] ?? ''}'),
+    ];
+    _showDetail('定时任务详情', rows);
+  }
+
+  void _showDetail(String title, List<(String, String)> rows) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              for (final row in rows)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(row.$1, style: Theme.of(context).textTheme.labelSmall),
+                      const SizedBox(height: 2),
+                      SelectableText(row.$2, style: Theme.of(context).textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

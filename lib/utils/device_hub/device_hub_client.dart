@@ -290,4 +290,65 @@ class DeviceHubClient {
         'notify_days': notifyDays,
         'location_days': locationDays,
       });
+
+  // ---------- 按需取数（AI 拉，手机应答） ----------
+  static Future<Map<String, dynamic>?> pollDevice({int waitSeconds = 20}) async {
+    final authToken = await token();
+    if (authToken == null) return null;
+    final base = await baseUrl();
+    final resp = await http
+        .get(Uri.parse('$base/device/poll?wait=$waitSeconds'),
+            headers: _headers(authToken))
+        .timeout(Duration(seconds: waitSeconds + 10));
+    if (resp.statusCode != 200) return null;
+    final body = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final cmd = body['command'];
+    return cmd is Map ? cmd.map((k, v) => MapEntry(k.toString(), v)) : null;
+  }
+
+  static Future<void> respondDevice(
+    String commandId, {
+    required bool ok,
+    Object? data,
+    String? error,
+  }) async {
+    final authToken = await token();
+    if (authToken == null) return;
+    final base = await baseUrl();
+    await http
+        .post(Uri.parse('$base/device/respond'),
+            headers: _headers(authToken),
+            body: jsonEncode({
+              'command_id': commandId,
+              'ok': ok,
+              if (ok) 'data': data,
+              if (!ok) 'error': error ?? '读取失败',
+            }))
+        .timeout(const Duration(seconds: 20));
+  }
+
+  // ---------- 连接应用目录 ----------
+  static Future<List<Map<String, dynamic>>> catalog() async {
+    final data = await getJson('/catalog');
+    return (data['items'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> nativeConnectors() async {
+    final data = await getJson('/connectors');
+    return (data['items'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+  }
+
+  static Future<void> saveConnector(
+          String name, Map<String, dynamic> config) =>
+      _postJson('/connectors', {'name': name, 'config': config});
+
+  static Future<Map<String, dynamic>> callConnector(
+          String name, Map<String, dynamic> params) =>
+      _postJson('/connectors/$name/call', {'params': params});
 }

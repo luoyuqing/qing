@@ -84,19 +84,8 @@ class _BriefingPageState extends State<BriefingPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            if (_date != null)
-              Text(
-                _date!,
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            if (_generated && !_loading && _error == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('自动概览（由设备数据生成）',
-                    style: theme.textTheme.bodySmall),
-              ),
-            const SizedBox(height: 12),
+            _header(theme),
+            const SizedBox(height: 14),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
@@ -110,34 +99,96 @@ class _BriefingPageState extends State<BriefingPage> {
                 action: FilledButton.tonal(onPressed: _load, child: const Text('重试')),
               )
             else ...[
-              for (final line in (_briefing ?? '').split('\n'))
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    _stripMarkdown(line),
-                    style: line.startsWith('## ')
-                        ? theme.textTheme.titleMedium
-                        : theme.textTheme.bodyMedium,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final line in (_briefing ?? '').split('\n'))
+                        if (line.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Text(
+                              _stripMarkdown(line),
+                              style: line.startsWith('## ')
+                                  ? theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600)
+                                  : theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                            ),
+                          ),
+                    ],
                   ),
                 ),
+              ),
               if (_todos.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text('待办', style: theme.textTheme.titleSmall),
-                for (final todo in _todos)
-                  CheckboxListTile(
-                    value: todo['done'] == true,
-                    onChanged: (_) => _toggleTodo(todo),
-                    title: Text('${todo['title'] ?? ''}'),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                Row(children: [
+                  Text('待办', style: theme.textTheme.titleSmall),
+                  const SizedBox(width: 8),
+                  Text('${_todos.where((t) => t['done'] != true).length} 项未完成',
+                      style: theme.textTheme.bodySmall),
+                ]),
+                const SizedBox(height: 6),
+                Card(
+                  child: Column(
+                    children: [
+                      for (final todo in _todos)
+                        CheckboxListTile(
+                          value: todo['done'] == true,
+                          onChanged: (_) => _toggleTodo(todo),
+                          title: Text('${todo['title'] ?? ''}'),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                        ),
+                    ],
                   ),
+                ),
               ],
             ],
           ],
         ),
       ),
       bottomNavigationBar: const QingBottomNav(currentIndex: 1),
+    );
+  }
+
+  Widget _header(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primaryContainer,
+            theme.colorScheme.secondaryContainer,
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _date ?? '今天',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _generated
+                ? '小爱还没写简报，这是按今天的日程与待办自动整理的概览'
+                : '办公小爱为你整理的今日简报',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onPrimaryContainer.withAlpha(200),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

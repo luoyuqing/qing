@@ -108,21 +108,71 @@ class _MemoryPageState extends State<MemoryPage> {
                 ),
               )
             else ...[
-              Text('办公小爱记得的事', style: theme.textTheme.titleSmall),
-              if (_updatedAt != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text('更新于 ${_updatedAt!.replaceFirst('T', ' ')}',
-                      style: theme.textTheme.bodySmall),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.tertiaryContainer,
+                      theme.colorScheme.primaryContainer,
+                    ],
+                  ),
                 ),
-              const SizedBox(height: 12),
-              for (final block in blocks)
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.psychology, color: theme.colorScheme.onTertiaryContainer),
+                      const SizedBox(width: 8),
+                      Text('办公小爱的记忆',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onTertiaryContainer,
+                          )),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${blocks.length} 条记忆'
+                      '${_updatedAt == null ? '' : ' · 更新于 ${_updatedAt!.substring(0, 16).replaceFirst('T', ' ')}'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer.withAlpha(200),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              for (var i = 0; i < blocks.length; i++)
                 Card(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: 10),
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Text(_stripLeadingMarker(block),
-                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.4)),
+                    padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.colorScheme.secondaryContainer,
+                          ),
+                          child: Text('${i + 1}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onSecondaryContainer,
+                              )),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(_stripLeadingMarker(blocks[i]),
+                              style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               if (_files.length > 1) ...[

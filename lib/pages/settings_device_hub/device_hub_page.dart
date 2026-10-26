@@ -265,12 +265,31 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             granted: status?.usage ?? false,
             onTap: () => DeviceDataBridge.openUsageSettings(),
           ),
+          _permissionTile(
+            context,
+            icon: Icons.location_on_outlined,
+            title: '定位',
+            subtitle: '小爱需要「你在哪」时才读取最后已知位置',
+            granted: status?.location ?? false,
+            onTap: () async {
+              await DeviceDataBridge.requestLocation();
+              await _refreshStatus();
+            },
+          ),
+          _permissionTile(
+            context,
+            icon: Icons.folder_outlined,
+            title: '文件',
+            subtitle: '按需查询文件名/大小（不读取内容，不遍历目录）',
+            granted: status?.files ?? false,
+            onTap: () => DeviceDataBridge.openAppSettings(),
+          ),
           if (status != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 '${status.model} · Android ${status.androidVersion} · '
-                '已授权 ${status.grantedCount}/4',
+                '已授权 ${status.grantedCount}/6',
                 style: theme.textTheme.bodySmall,
               ),
             ),
@@ -278,10 +297,10 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
 
           _sectionTitle(context, '同步'),
           ListTile(
-            leading: const Icon(Icons.sync),
-            title: const Text('立即同步'),
+            leading: const Icon(Icons.bolt_outlined),
+            title: const Text('测试取数（可选）'),
             subtitle: Text(
-              _lastReport ?? '把本机数据上报到你的 device-hub（不经过任何第三方）',
+              _lastReport ?? '平时不需要同步：小爱要用数据时会自动向手机要。这里只是自检一次。',
             ),
             trailing: _busy
                 ? const SizedBox(

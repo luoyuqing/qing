@@ -4,11 +4,14 @@ import android.Manifest
 import android.app.Activity
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.provider.CalendarContract
+import android.provider.MediaStore
 import android.provider.ContactsContract
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
@@ -65,6 +68,8 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 result.success(true)
             }
             "requestCalendarContacts" -> requestCalendarContacts(result)
+            "requestLocation" -> requestPermission(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), result)
             "notifications" -> result.success(readNotifications(call.argument<Int>("limit") ?: 50))
             "calendar" -> {
                 val from = call.argument<Long>("fromMs") ?: (System.currentTimeMillis() - 86_400_000L)
@@ -72,6 +77,11 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 result.success(readCalendar(from, to))
             }
             "contacts" -> result.success(readContacts(call.argument<Int>("limit") ?: 500))
+            "location" -> result.success(readLocation())
+            "files" -> result.success(readFiles(
+                call.argument<Int>("limit") ?: 30,
+                call.argument<String>("query") ?: "",
+            ))
             "usage" -> {
                 val from = call.argument<Long>("fromMs") ?: startOfToday()
                 val to = call.argument<Long>("toMs") ?: System.currentTimeMillis()
@@ -103,11 +113,17 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         val calendar = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         val contacts = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
         val usage = hasUsageAccess(c)
+        val location = c != null && (ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+        val files = c != null && (Build.VERSION.SDK_INT >= 33 ||
+            ContextCompat.checkSelfPermission(c, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
         return mapOf(
             "notification" to notificationEnabled,
             "calendar" to calendar,
             "contacts" to contacts,
             "usage" to usage,
+            "location" to location,
+            "files" to files,
             "android" to Build.VERSION.RELEASE,
             "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
         )
@@ -125,6 +141,23 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 android.os.Process.myUid(), c.packageName)
         }
         return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestPermission(perms: Array<String>, result: MethodChannel.Result) {
+        val activity = activityRef?.get()
+        if (activity == null) {
+            result.error("no_activity", "需要在前台页面申请权限", null)
+            return
+        }
+        val missing = perms.filter {
+            ContextCompat.checkSelfPermission(activity, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            result.success(statusMap())
+            return
+        }
+        pendingPermissionResult = result
+        ActivityCompat.requestPermissions(activity, missing.toTypedArray(), REQ_PERMS)
     }
 
     private fun requestCalendarContacts(result: MethodChannel.Result) {
@@ -244,6 +277,67 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             }
         }
         return grouped.values.toList()
+    }
+
+    // ---------- 定位（仅最后一次已知位置，不持续追踪） ----------
+    private fun readLocation(): Map<String, Any?> {
+        val c = ctx() ?: return mapOf("error" to "no context")
+        if (ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return mapOf("error" to "未授予定位权限")
+        }
+        val lm = c.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return mapOf("error" to "no location service")
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)
+        var best: android.location.Location? = null
+        for (p in providers) {
+            val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull() ?: continue
+            if (best == null || loc.time > best!!.time) best = loc
+        }
+        val loc = best ?: return mapOf("error" to "暂无已知位置（可先打开地图 App 定位一次）")
+        return mapOf(
+            "lat" to loc.latitude,
+            "lng" to loc.longitude,
+            "accuracy" to loc.accuracy,
+            "time" to loc.time,
+            "provider" to loc.provider,
+        )
+    }
+
+    // ---------- 文件（MediaStore 索引，不遍历目录） ----------
+    private fun readFiles(limit: Int, query: String): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        val projection = arrayOf(
+            MediaStore.Files.FileColumns._ID,
+            MediaStore.Files.FileColumns.DISPLAY_NAME,
+            MediaStore.Files.FileColumns.SIZE,
+            MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.MEDIA_TYPE,
+        )
+        val selection = if (query.isBlank()) null else "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
+        val args = if (query.isBlank()) null else arrayOf("%$query%")
+        val out = ArrayList<Map<String, Any?>>()
+        runCatching {
+            c.contentResolver.query(
+                MediaStore.Files.getContentUri("external"),
+                projection, selection, args,
+                "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC",
+            )?.use { cur ->
+                while (cur.moveToNext() && out.size < limit) {
+                    val id = cur.getLong(0)
+                    out.add(mapOf(
+                        "id" to id.toString(),
+                        "name" to cur.getString(1),
+                        "size" to cur.getLong(2),
+                        "mime" to cur.getString(3),
+                        "modified" to cur.getLong(4) * 1000,
+                        "uri" to ContentUris.withAppendedId(MediaStore.Files.getContentUri("external"), id).toString(),
+                    ))
+                }
+            }
+        }
+        return out
     }
 
     // ---------- 使用时长 ----------

@@ -6,6 +6,8 @@ class DevicePermissionStatus {
   final bool calendar;
   final bool contacts;
   final bool usage;
+  final bool location;
+  final bool files;
   final String model;
   final String androidVersion;
 
@@ -14,6 +16,8 @@ class DevicePermissionStatus {
     required this.calendar,
     required this.contacts,
     required this.usage,
+    required this.location,
+    required this.files,
     required this.model,
     required this.androidVersion,
   });
@@ -24,14 +28,23 @@ class DevicePermissionStatus {
         calendar: m['calendar'] == true,
         contacts: m['contacts'] == true,
         usage: m['usage'] == true,
+        location: m['location'] == true,
+        files: m['files'] == true,
         model: (m['model'] ?? '') as String,
         androidVersion: (m['android'] ?? '') as String,
       );
 
-  bool get allGranted => notification && calendar && contacts && usage;
+  bool get allGranted =>
+      notification && calendar && contacts && usage && location && files;
 
-  int get grantedCount =>
-      [notification, calendar, contacts, usage].where((e) => e).length;
+  int get grantedCount => [
+        notification,
+        calendar,
+        contacts,
+        usage,
+        location,
+        files,
+      ].where((e) => e).length;
 }
 
 class DeviceNotification {
@@ -70,6 +83,11 @@ class DeviceDataBridge {
 
   static Future<void> openAppSettings() =>
       _channel.invokeMethod('openAppSettings');
+
+  static Future<DevicePermissionStatus> requestLocation() async {
+    final map = await _channel.invokeMethod<Map>('requestLocation');
+    return DevicePermissionStatus.fromMap(map ?? const {});
+  }
 
   static Future<DevicePermissionStatus> requestCalendarContacts() async {
     final map = await _channel.invokeMethod<Map>('requestCalendarContacts');
@@ -117,6 +135,23 @@ class DeviceDataBridge {
   }) async {
     final list =
         await _channel.invokeMethod<List>('usage', {'fromMs': fromMs, 'toMs': toMs});
+    return (list ?? [])
+        .whereType<Map>()
+        .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> location() async {
+    final map = await _channel.invokeMethod<Map>('location') ?? const {};
+    return map.map((k, v) => MapEntry(k.toString(), v));
+  }
+
+  static Future<List<Map<String, dynamic>>> files({
+    int limit = 30,
+    String query = '',
+  }) async {
+    final list = await _channel
+        .invokeMethod<List>('files', {'limit': limit, 'query': query});
     return (list ?? [])
         .whereType<Map>()
         .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))

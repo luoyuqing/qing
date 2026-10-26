@@ -33,6 +33,7 @@ import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
 import 'package:fluffychat/pages/briefing/briefing_page.dart';
 import 'package:fluffychat/pages/memory/memory_page.dart';
+import 'package:fluffychat/pages/connectors/connectors_page.dart';
 import 'package:fluffychat/pages/mcp_servers/mcp_servers_page.dart';
 import 'package:fluffychat/pages/privacy/retention_page.dart';
 import 'package:fluffychat/pages/settings_device_hub/device_hub_page.dart';
@@ -270,6 +271,12 @@ abstract class AppRoutes {
                         state,
                         const DeviceHubPage(),
                       ),
+                      redirect: loggedOutRedirect,
+                    ),
+                    GoRoute(
+                      path: 'connectors',
+                      pageBuilder: (context, state) =>
+                          defaultPageBuilder(context, state, const ConnectorsPage()),
                       redirect: loggedOutRedirect,
                     ),
                     GoRoute(

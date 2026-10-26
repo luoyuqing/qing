@@ -225,10 +225,10 @@ class SettingsView extends StatelessWidget {
               leading: const Icon(Icons.extension_outlined),
               title: const Text('连接应用'),
               subtitle: const Text('MCP 服务（由 X2 代理，凭据不上手机）'),
-              tileColor: activeRoute.startsWith('/rooms/settings/mcp')
+              tileColor: activeRoute.startsWith('/rooms/settings/connectors')
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
-              onTap: () => context.go('/rooms/settings/mcp'),
+              onTap: () => context.go('/rooms/settings/connectors'),
             ),
             ListTile(
               leading: const Icon(Icons.privacy_tip_outlined),
