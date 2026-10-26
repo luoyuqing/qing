@@ -99,14 +99,14 @@ class DeviceHubClient {
     String kind,
     List<Map<String, dynamic>> items,
   ) async {
-    final token = await token();
-    if (token == null) throw Exception('尚未配对');
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
     if (items.isEmpty) return {'stored': 0, 'kind': kind};
     final base = await baseUrl();
     final resp = await http
         .post(
           Uri.parse('$base/ingest'),
-          headers: _headers(token),
+          headers: _headers(authToken),
           body: jsonEncode({'kind': kind, 'items': items}),
         )
         .timeout(const Duration(seconds: 30));
