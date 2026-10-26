@@ -233,7 +233,7 @@ class DeviceHubClient {
   }
 
   static String _two(int v) => v.toString().padLeft(2, '0');
-}
+
 
   // ---------- 连接应用（MCP，由 hub 代理） ----------
   static Future<List<Map<String, dynamic>>> mcpServers() async {
@@ -290,4 +290,4 @@ class DeviceHubClient {
         'notify_days': notifyDays,
         'location_days': locationDays,
       });
-
+}
