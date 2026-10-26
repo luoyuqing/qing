@@ -157,6 +157,26 @@ class DeviceHubClient {
   static Future<Map<String, dynamic>> briefingDay({String? date}) =>
       getJson('/briefing/day', query: date == null ? null : {'date': date});
 
+  /// 人设内容（Hermes config.yaml 里的 agent.personalities）
+  static Future<Map<String, dynamic>> personaEntries({
+    String persona = 'default',
+  }) async {
+    final data = await getJson('/persona', query: {'persona': persona});
+    return data;
+  }
+
+  /// 保存人设内容
+  static Future<Map<String, dynamic>> savePersona({
+    required String persona,
+    required String key,
+    required String content,
+  }) =>
+      _postJson('/persona', {
+        'persona': persona,
+        'key': key,
+        'content': content,
+      }, timeout: const Duration(seconds: 30));
+
   /// 让小爱立刻写一份（kind: morning / evening）
   static Future<Map<String, dynamic>> requestBriefing({String? kind}) =>
       _postJson('/briefing/request', {

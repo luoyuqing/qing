@@ -11,6 +11,7 @@ import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart' hide Result;
 import 'package:url_launcher/url_launcher.dart';
@@ -211,6 +212,10 @@ class SettingsView extends StatelessWidget {
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
               onTap: () => context.go('/rooms/settings/notifications'),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 18, 16, 6),
+              child: QingSectionTitle('清助理'),
             ),
             ListTile(
               leading: const Icon(Icons.memory_outlined),

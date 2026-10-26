@@ -1,6 +1,7 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
+import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -25,6 +26,7 @@ class _TasksPageState extends State<TasksPage>
   String? _error;
   List<Map<String, dynamic>> _sessions = const [];
   List<Map<String, dynamic>> _routines = const [];
+  String _tab = 'sessions';
 
   @override
   void initState() {
@@ -67,7 +69,10 @@ class _TasksPageState extends State<TasksPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('任务'),
         actions: [
           IconButton(
@@ -75,46 +80,89 @@ class _TasksPageState extends State<TasksPage>
             icon: const Icon(Icons.refresh),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: [
-            Tab(text: '最近会话 · ${_sessions.length}'),
-            Tab(text: '定时任务 · ${_routines.length}'),
-          ],
-        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _errorView(theme)
-              : TabBarView(
-                  controller: _tabs,
+              : Column(
                   children: [
-                    RefreshIndicator(
-                      onRefresh: _load,
-                      child: _sessions.isEmpty
-                          ? ListView(children: [_empty(theme, '还没有聊天会话')])
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                              itemCount: _sessions.length,
-                              itemBuilder: (context, i) =>
-                                  _sessionCard(theme, _sessions[i]),
-                            ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                      child: _hero(theme),
                     ),
-                    RefreshIndicator(
-                      onRefresh: _load,
-                      child: _routines.isEmpty
-                          ? ListView(children: [_empty(theme, '还没有定时任务')])
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                              itemCount: _routines.length,
-                              itemBuilder: (context, i) =>
-                                  _routineCard(theme, _routines[i]),
-                            ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: QingSegmented(
+                        values: const ['sessions', 'routines'],
+                        labels: [
+                          '最近会话 · ${_sessions.length}',
+                          '定时任务 · ${_routines.length}',
+                        ],
+                        selected: _tab,
+                        onChanged: (v) {
+                          setState(() => _tab = v);
+                          _tabs.animateTo(v == 'sessions' ? 0 : 1);
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabs,
+                        children: [
+                          RefreshIndicator(
+                            onRefresh: _load,
+                            child: _sessions.isEmpty
+                                ? ListView(children: [
+                                    _empty(theme, '还没有聊天会话')
+                                  ])
+                                : ListView.builder(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                                    itemCount: _sessions.length,
+                                    itemBuilder: (context, i) =>
+                                        _sessionCard(theme, _sessions[i]),
+                                  ),
+                          ),
+                          RefreshIndicator(
+                            onRefresh: _load,
+                            child: _routines.isEmpty
+                                ? ListView(children: [
+                                    _empty(theme, '还没有定时任务')
+                                  ])
+                                : ListView.builder(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                                    itemCount: _routines.length,
+                                    itemBuilder: (context, i) =>
+                                        _routineCard(theme, _routines[i]),
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
       bottomNavigationBar: const QingBottomNav(currentIndex: 2),
+    );
+  }
+
+  Widget _hero(ThemeData theme) {
+    final sessions = _sessions.length;
+    final routines = _routines.length;
+    final enabled = _routines.where((r) => r['enabled'] == true).length;
+    return QingHero(
+      icon: Icons.task_alt_rounded,
+      eyebrow: '任务 · 定时',
+      title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
+      subtitle: routines == 0
+          ? '小爱还没有定时任务'
+          : '$routines 个定时任务，其中 $enabled 个在跑',
+      chips: [
+        if (sessions > 0) '$sessions 段会话',
+        if (routines > 0) '$routines 个定时',
+        if (enabled > 0) '$enabled 个运行中',
+      ],
     );
   }
 
@@ -149,13 +197,13 @@ class _TasksPageState extends State<TasksPage>
   Widget _sessionCard(ThemeData theme, Map<String, dynamic> s) {
     final name = '${s['name'] ?? '会话'}';
     final snippet = '${s['last_user_message'] ?? s['last_bot_message'] ?? ''}';
-    final room = s['room_id'] as String?;
-    return Card(
+    return QingCard(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      onTap: () => _openSession(s),
+      child: Row(
+        children: [
+          CircleAvatar(
           backgroundColor: theme.colorScheme.primaryContainer,
           child: Icon(
             s['chat_type'] == 'group'
@@ -163,33 +211,40 @@ class _TasksPageState extends State<TasksPage>
                 : Icons.chat_bubble_outline,
             size: 20,
           ),
-        ),
-        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              '${s['platform'] ?? ''} · ${s['message_count'] ?? 0} 条 · '
-              '${_formatTime(s['last_at'])}'
-              '${s['is_current'] == true ? ' · 当前' : ''}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: s['is_current'] == true
-                    ? theme.colorScheme.primary
-                    : null,
-              ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  '${s['platform'] ?? ''} · ${s['message_count'] ?? 0} 条 · '
+                  '${_formatTime(s['last_at'])}'
+                  '${s['is_current'] == true ? ' · 当前' : ''}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: s['is_current'] == true
+                        ? theme.colorScheme.primary
+                        : null,
+                  ),
+                ),
+                if (snippet.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(snippet,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium),
+                ],
+              ],
             ),
-            if (snippet.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(snippet,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium),
-            ],
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openSession(s),
+          ),
+          const Icon(Icons.chevron_right),
+        ],
       ),
     );
   }
@@ -354,7 +409,7 @@ class _TasksPageState extends State<TasksPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isUser ? '主人' : '小爱',
+              isUser ? '主人' : _personaLabel,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -378,37 +433,56 @@ class _TasksPageState extends State<TasksPage>
   Widget _routineCard(ThemeData theme, Map<String, dynamic> r) {
     final enabled = r['enabled'] == true;
     final status = '${r['last_status'] ?? ''}';
-    return Card(
+    return QingCard(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(
-          enabled ? Icons.schedule : Icons.pause_circle_outline,
-          color:
-              enabled ? theme.colorScheme.primary : theme.colorScheme.outline,
-        ),
-        title: Text('${r['name'] ?? ''}',
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('${r['schedule_expr'] ?? r['schedule'] ?? ''}',
-                style: theme.textTheme.bodySmall),
-            if (status.isNotEmpty)
-              Text(
-                '上次 ${_statusText(status)} · ${_formatTime(r['last_run_at'])}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: status.startsWith('ok')
-                      ? Colors.green
-                      : theme.colorScheme.error,
-                ),
-              ),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openRoutine(r),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      onTap: () => _openRoutine(r),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: enabled
+                  ? theme.colorScheme.primaryContainer.withAlpha(140)
+                  : theme.colorScheme.surfaceContainerHighest.withAlpha(160),
+            ),
+            child: Icon(
+              enabled ? Icons.schedule : Icons.pause_circle_outline,
+              size: 19,
+              color: enabled
+                  ? theme.colorScheme.onPrimaryContainer
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${r['name'] ?? ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('${r['schedule_expr'] ?? r['schedule'] ?? ''}',
+                    style: theme.textTheme.bodySmall),
+                if (status.isNotEmpty)
+                  Text(
+                    '上次 ${_statusText(status)} · ${_formatTime(r['last_run_at'])}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: status.startsWith('ok')
+                          ? Colors.green
+                          : theme.colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right),
+        ],
       ),
     );
   }
@@ -429,6 +503,18 @@ class _TasksPageState extends State<TasksPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('定时任务已保存')),
       );
+    }
+  }
+
+  /// 当前人设的名字（气泡上显示）
+  String get _personaLabel {
+    switch (widget.persona) {
+      case 'intimate':
+        return '亲密小爱';
+      case 'tavern':
+        return '酒馆角色卡';
+      default:
+        return '办公小爱';
     }
   }
 

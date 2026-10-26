@@ -1,6 +1,7 @@
 import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 清助理 · 设备数据设置页
@@ -171,7 +172,10 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
     final status = _status;
 
     return Scaffold(
+      backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('设备数据'),
         leading: Center(
           child: BackButton(onPressed: () => context.go('/rooms/settings')),

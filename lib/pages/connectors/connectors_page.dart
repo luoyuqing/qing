@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 清助理 · 连接应用
@@ -220,7 +221,10 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
     final native = _catalog.where((e) => '${e['mode']}' == 'native').toList();
 
     return Scaffold(
+      backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('连接应用'),
         leading: Center(
           child: BackButton(onPressed: () => context.go('/rooms/settings')),
@@ -247,18 +251,17 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    Text('官方 MCP', style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 4),
+                    const QingSectionTitle('官方 MCP'),
                     Text('连接后由 X2 代理调用，凭据不上手机。',
                         style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     for (final item in remote) _catalogTile(context, item),
                     const SizedBox(height: 20),
-                    Text('内置连接器', style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 18),
+                    const QingSectionTitle('内置连接器'),
                     Text('由 X2 直接实现，零部署；AI 对话里可直接用。',
                         style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     for (final item in native) _catalogTile(context, item),
                   ],
                 ),
@@ -269,34 +272,63 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
     final theme = Theme.of(context);
     final connected = _connected(item);
     final pending = '${item['mode']}' == 'pending';
-    return Card(
+    return QingCard(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.secondaryContainer,
-          child: Icon(_icon('${item['icon']}'), size: 20),
-        ),
-        title: Row(children: [
-          Text('${item['name']}'),
-          if (connected) ...[
-            const SizedBox(width: 8),
-            Icon(Icons.check_circle, size: 16, color: Colors.green.shade600),
-          ],
-        ]),
-        subtitle: Text('${item['capability'] ?? ''}',
-            maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: pending
-            ? Text('待开放', style: theme.textTheme.bodySmall)
-            : connected && '${item['mode']}' == 'native'
-                ? TextButton(
-                    onPressed: () => _testNative(item),
-                    child: const Text('测试'),
-                  )
-                : TextButton(
-                    onPressed: () => _open(item),
-                    child: Text(connected ? '重配' : '连接'),
-                  ),
-        onTap: pending ? null : () => _open(item),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      onTap: pending ? null : () => _open(item),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.secondaryContainer.withAlpha(140),
+            ),
+            child: Icon(_icon('${item['icon']}'), size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text('${item['name']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                    ),
+                    if (connected) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.check_circle,
+                          size: 15, color: Colors.green.shade600),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text('${item['capability'] ?? ''}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          pending
+              ? Text('待开放', style: theme.textTheme.bodySmall)
+              : connected && '${item['mode']}' == 'native'
+                  ? TextButton(
+                      onPressed: () => _testNative(item),
+                      child: const Text('测试'),
+                    )
+                  : TextButton(
+                      onPressed: () => _open(item),
+                      child: Text(connected ? '重配' : '连接'),
+                    ),
+        ],
       ),
     );
   }

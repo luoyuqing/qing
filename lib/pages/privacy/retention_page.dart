@@ -1,5 +1,6 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 清助理 · 数据与隐私
@@ -85,7 +86,10 @@ class _RetentionPageState extends State<RetentionPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('数据与隐私'),
         leading: Center(
           child: BackButton(onPressed: () => context.go('/rooms/settings')),
