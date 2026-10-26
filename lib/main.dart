@@ -24,6 +24,7 @@ import 'package:universal_html/universal_html.dart' as web;
 
 import 'config/setting_keys.dart';
 import 'utils/background_push.dart';
+import 'utils/device_hub/device_hub_poller.dart';
 import 'utils/headless_notifications.dart';
 import 'widgets/fluffy_chat_app.dart';
 
@@ -84,6 +85,12 @@ void main(List<String> args) => runZonedGuarded(() async {
   if (PlatformInfos.isAndroid &&
       AppLifecycleState.detached == WidgetsBinding.instance.lifecycleState) {
     final clients = await ClientManager.getClients(store: store);
+
+  // 清助理：前台启动即开始长轮询，AI 需要数据时现场读取
+  DeviceHubPoller.start();
+
+    // 清助理：后台引擎也启动按需取数应答器（AI 随时可能来要数据）
+    DeviceHubPoller.start();
 
     // Qchat：纯客户端方案没有服务器推送器（FCM/UnifiedPush 都不用），
     // /sync 长轮询本身就是推送。detached 引擎（开机自启 / 进程被杀后由
