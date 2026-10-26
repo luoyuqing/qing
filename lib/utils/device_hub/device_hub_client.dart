@@ -153,6 +153,16 @@ class DeviceHubClient {
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
+  /// 某天的简报：晨报 + 晚报 + 待办 + 统计
+  static Future<Map<String, dynamic>> briefingDay({String? date}) =>
+      getJson('/briefing/day', query: date == null ? null : {'date': date});
+
+  /// 让小爱立刻写一份（kind: morning / evening）
+  static Future<Map<String, dynamic>> requestBriefing({String? kind}) =>
+      _postJson('/briefing/request', {
+        if (kind != null) 'kind': kind,
+      }, timeout: const Duration(seconds: 45));
+
   /// 勾选/取消待办
   static Future<void> setTodoDone(int id, bool done) async {
     final authToken = await token();
