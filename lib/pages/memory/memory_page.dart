@@ -49,14 +49,12 @@ class _MemoryPageState extends State<MemoryPage>
       if (_personas.isEmpty) {
         _personas = await DeviceHubClient.personas();
       }
-      final results = await Future.wait([
-        DeviceHubClient.memory(persona: _persona),
-        DeviceHubClient.skills(persona: _persona),
-      ]);
+      final memory = await DeviceHubClient.memory(persona: _persona);
+      final skills = await DeviceHubClient.skills(persona: _persona);
       if (!mounted) return;
       setState(() {
-        _memoryData = results[0];
-        _skills = results[1];
+        _memoryData = memory;
+        _skills = skills;
         _loading = false;
       });
     } catch (e) {
