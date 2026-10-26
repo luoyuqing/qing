@@ -62,7 +62,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 安装包在 GitHub Releases（arm64）：
 
-- **v1.6.1（已验证满意的一版，可随时回退）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.6.1/Qingzhuli-1.6.1-arm64.apk)
+- **v1.6.1（当前稳定版）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.6.1/Qingzhuli-1.6.1-arm64.apk)
+  （v1.7.0 的聊天页改版效果不理想，已回退；重发版见 Releases 的 `v1.6.1-r2`）
 - 历史版本见 [Releases](https://github.com/luoyuqing/qing-assistant/releases)
 
 回退点：tag `v1.6.1` / 分支 `release/v1.6.1`。
@@ -93,7 +94,7 @@ lib/
     memory/        记忆（记忆/画像/技能/人设）
     connectors/    连接应用（MCP 目录 + 内置连接器）
     settings_device_hub/  设备数据（配对、状态、权限）
-    chat/          FluffyChat 原生聊天内核（气泡/输入框已按清助理风格重做）
+    chat/          FluffyChat 原生聊天内核（保留上游样式，未做改动）
   widgets/
     qing_style.dart      统一视觉组件（卡片 / Hero / 分段 / 空状态）
     qing_bottom_nav.dart 五个 Tab 底栏

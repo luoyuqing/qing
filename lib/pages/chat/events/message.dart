@@ -107,7 +107,7 @@ class Message extends StatelessWidget {
     final ownMessage = event.senderId == client.userID;
     final alignment = ownMessage ? Alignment.topRight : Alignment.topLeft;
 
-    var color = theme.colorScheme.surfaceContainerLowest;
+    var color = theme.colorScheme.surfaceContainerHigh;
     final displayTime =
         event.type == EventTypes.RoomCreate ||
         previousEvent == null ||
@@ -128,8 +128,9 @@ class Message extends StatelessWidget {
         previousEvent!.senderId == event.senderId &&
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
-    // 清助理：自己的气泡改成浅色卡片底，文字随之用 onSurface
-    final textColor = theme.colorScheme.onSurface;
+    final textColor = ownMessage
+        ? theme.onBubbleColor
+        : theme.colorScheme.onSurface;
 
     final linkColor = ownMessage
         ? theme.brightness == Brightness.light
@@ -142,8 +143,7 @@ class Message extends StatelessWidget {
         : MainAxisAlignment.start;
 
     final displayEvent = event.getDisplayEvent(timeline);
-    // 清助理：连续大圆角，尾巴角也保持柔和（不再是 3px 尖角）
-    const hardCorner = Radius.circular(15);
+    const hardCorner = Radius.circular(3);
     const roundedCorner = Radius.circular(AppConfig.borderRadius);
     final borderRadius = BorderRadius.only(
       topLeft: !ownMessage ? hardCorner : roundedCorner,
@@ -166,10 +166,7 @@ class Message extends StatelessWidget {
     if (ownMessage) {
       color = displayEvent.status.isError
           ? Colors.redAccent
-          : Color.alphaBlend(
-              theme.colorScheme.primary.withAlpha(42),
-              theme.colorScheme.surface,
-            );
+          : theme.bubbleColor;
     }
 
     final sentReactions = <String>{};
@@ -442,19 +439,13 @@ class Message extends StatelessWidget {
                                           ? Colors.transparent
                                           : color,
                                       borderRadius: borderRadius,
-                                      border: noBubble || ownMessage
-                                          ? null
-                                          : Border.all(
-                                              color: theme.colorScheme
-                                                  .outlineVariant
-                                                  .withAlpha(80),
-                                            ),
                                     ),
                                     clipBehavior: Clip.antiAlias,
                                     child: BubbleBackground(
                                       colors: colors,
                                       ignore:
                                           noBubble ||
+                                          !ownMessage ||
                                           MediaQuery.highContrastOf(context),
                                       scrollController: scrollController,
                                       child: Container(

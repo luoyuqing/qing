@@ -20,7 +20,6 @@ import 'package:fluffychat/widgets/chat_settings_popup_menu.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:fluffychat/widgets/pulsating_widget.dart';
-import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -83,9 +82,11 @@ class ChatView extends StatelessWidget {
               key: Key('chat_page'),
               extendBodyBehindAppBar: true,
               appBar: AppBar(
-                // 清助理：头部不画分割线，底色与页面一致，靠留白分层
-                shape: null,
-                scrolledUnderElevation: 0,
+                shape: FluffyThemes.isColumnMode(context)
+                    ? Border(
+                        bottom: BorderSide(color: theme.dividerColor, width: 1),
+                      )
+                    : null,
                 actionsIconTheme: IconThemeData(
                   color: controller.selectedEvents.isEmpty
                       ? null
@@ -94,7 +95,7 @@ class ChatView extends StatelessWidget {
                 backgroundColor: controller.selectedEvents.isEmpty
                     ? controller.activeThreadId != null
                           ? theme.colorScheme.secondaryContainer
-                          : qingPageBackground(context)
+                          : theme.colorScheme.surface.withAlpha(240)
                     : theme.colorScheme.tertiaryContainer,
                 automaticallyImplyLeading: false,
                 leading: controller.selectMode
