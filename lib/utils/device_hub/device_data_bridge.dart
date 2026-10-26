@@ -8,6 +8,7 @@ class DevicePermissionStatus {
   final bool usage;
   final bool location;
   final bool files;
+  final bool allFiles;
   final String model;
   final String androidVersion;
 
@@ -18,6 +19,7 @@ class DevicePermissionStatus {
     required this.usage,
     required this.location,
     required this.files,
+    required this.allFiles,
     required this.model,
     required this.androidVersion,
   });
@@ -30,6 +32,7 @@ class DevicePermissionStatus {
         usage: m['usage'] == true,
         location: m['location'] == true,
         files: m['files'] == true,
+        allFiles: m['all_files'] == true,
         model: (m['model'] ?? '') as String,
         androidVersion: (m['android'] ?? '') as String,
       );

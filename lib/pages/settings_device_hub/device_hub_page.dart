@@ -290,13 +290,16 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             context,
             icon: Icons.folder_outlined,
             title: '文件',
-            subtitle: '按需查文件名/大小（不读内容）。Android 13+ 先给媒体权限；'
-                '要列文档类再点一次开「所有文件访问」',
+            subtitle: (status?.allFiles ?? false)
+                ? '可列出完整路径（含下载/文档）；不读取文件内容'
+                : '按需查文件名/大小。要给小爱完整路径，点一下开「所有文件访问」',
             granted: status?.files ?? false,
             onTap: () async {
               await DeviceDataBridge.requestFiles();
               await _refreshStatus();
-              if ((await _statusNow())?.files != true) {
+              final now = await _statusNow();
+              // 只给媒体权限时仍拿不到文档的真实路径，继续引导开「所有文件访问」
+              if (now?.allFiles != true) {
                 await DeviceDataBridge.openAllFilesAccess();
               }
             },

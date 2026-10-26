@@ -1,4 +1,5 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -169,9 +170,14 @@ class _TasksPageState extends State<TasksPage>
           children: [
             const SizedBox(height: 4),
             Text(
-              '${_formatTime(s['last_at'])} · ${s['message_count'] ?? 0} 条消息'
-              '${room == null ? '' : ' · 可切回'}',
-              style: theme.textTheme.bodySmall,
+              '${s['platform'] ?? ''} · ${s['message_count'] ?? 0} 条 · '
+              '${_formatTime(s['last_at'])}'
+              '${s['is_current'] == true ? ' · 当前' : ''}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: s['is_current'] == true
+                    ? theme.colorScheme.primary
+                    : null,
+              ),
             ),
             if (snippet.isNotEmpty) ...[
               const SizedBox(height: 2),
@@ -223,13 +229,28 @@ class _TasksPageState extends State<TasksPage>
                     ),
                   ),
                   if (room != null)
-                    FilledButton.tonalIcon(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        context.go('/rooms/$room');
-                      },
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: const Text('切回会话'),
+                    s['is_current'] == true
+                        ? FilledButton.tonalIcon(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              context.go('/rooms/$room');
+                            },
+                            icon: const Icon(Icons.open_in_new, size: 18),
+                            label: const Text('进入聊天'),
+                          )
+                        : FilledButton.tonalIcon(
+                            onPressed: () => _resumeSession(
+                              room,
+                              '${s['id']}',
+                              sheetContext,
+                            ),
+                            icon: const Icon(Icons.history, size: 18),
+                            label: const Text('接着聊'),
+                          )
+                  else
+                    Chip(
+                      label: Text('${s['platform']} 会话'),
+                      visualDensity: VisualDensity.compact,
                     ),
                 ],
               ),
@@ -274,6 +295,38 @@ class _TasksPageState extends State<TasksPage>
           ],
         ),
       ),
+    );
+  }
+
+  /// 真正切换上下文：给房间发 Hermes 的 `!resume <session_id>` 命令。
+  /// 网关会把这个房间的当前会话切到目标 session，后续对话接着那段记忆继续。
+  Future<void> _resumeSession(
+    String roomId,
+    String sessionId,
+    BuildContext sheetContext,
+  ) async {
+    final client = Matrix.of(context).client;
+    final room = client.getRoomById(roomId);
+    if (room == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('本机找不到这个房间，先在聊天里进去一次再试')),
+      );
+      return;
+    }
+    try {
+      await room.sendTextEvent('!resume $sessionId --cross-room');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('切换失败：$e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.pop(sheetContext);
+    context.go('/rooms/$roomId');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已切到这段上下文，直接接着聊就好')),
     );
   }
 

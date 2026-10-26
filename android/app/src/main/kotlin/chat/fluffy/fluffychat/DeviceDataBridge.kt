@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.CalendarContract
 import android.provider.MediaStore
 import android.provider.ContactsContract
@@ -19,6 +20,7 @@ import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.BinaryMessenger
+import java.io.File
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -125,6 +127,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             "usage" to usage,
             "location" to location,
             "files" to files,
+            "all_files" to (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()),
             "android" to Build.VERSION.RELEASE,
             "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
         )
@@ -368,6 +371,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             MediaStore.Files.FileColumns.SIZE,
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATE_MODIFIED,
+            MediaStore.Files.FileColumns.DATA,
         )
         val selection = if (query.isBlank()) null
         else "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
@@ -393,12 +397,14 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                     while (cur.moveToNext()) {
                         val name = cur.getString(1) ?: continue
                         val size = cur.getLong(2)
-                        val key = "$name|$size"
+                        val path = runCatching { cur.getString(5) }.getOrNull()
+                        val key = path?.takeIf { it.isNotBlank() } ?: "$name|$size"
                         if (merged.containsKey(key)) continue
                         val id = cur.getLong(0)
-                        merged[key] = mapOf(
+                        merged[key] = mapOf<String, Any?>(
                             "id" to id.toString(),
                             "name" to name,
+                            "path" to path,
                             "size" to size,
                             "mime" to cur.getString(3),
                             "modified" to cur.getLong(4) * 1000,
@@ -408,9 +414,61 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 }
             }
         }
+
+        // 有「所有文件访问」时直接遍历存储，能拿到 MediaStore 不索引的文档/压缩包，路径也是真的
+        if (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) {
+            for (item in scanFilesystem(query, limit)) {
+                val path = item["path"] as? String ?: continue
+                if (!merged.containsKey(path)) merged[path] = item
+            }
+        }
+
         return merged.values
             .sortedByDescending { (it["modified"] as? Long) ?: 0L }
             .take(limit)
+    }
+
+    /**
+     * 直接遍历共享存储，返回真实绝对路径。
+     * 跳过 Android/data、Android/obb、Android/media（系统目录，无意义且量大），
+     * 限制深度与总量，避免在低端机上卡住。
+     */
+    private fun scanFilesystem(query: String, limit: Int): List<Map<String, Any?>> {
+        val root = Environment.getExternalStorageDirectory() ?: return emptyList()
+        val rootPath = root.absolutePath
+        val skipPrefixes = listOf("Android/data", "Android/obb", "Android/media")
+        val out = ArrayList<Map<String, Any?>>()
+        var visited = 0
+
+        fun walk(dir: File, depth: Int) {
+            if (out.size >= limit || visited > 20000 || depth > 6) return
+            val children = runCatching { dir.listFiles() }.getOrNull() ?: return
+            for (f in children) {
+                if (out.size >= limit || visited > 20000) return
+                val rel = f.absolutePath.removePrefix("$rootPath/")
+                if (skipPrefixes.any { rel.startsWith(it) }) continue
+                if (f.isDirectory) {
+                    if (!f.name.startsWith(".")) walk(f, depth + 1)
+                    continue
+                }
+                visited++
+                if (query.isNotBlank() && !f.name.contains(query, ignoreCase = true)) continue
+                out.add(
+                    mapOf<String, Any?>(
+                        "id" to f.absolutePath.hashCode().toString(),
+                        "name" to f.name,
+                        "path" to f.absolutePath,
+                        "size" to f.length(),
+                        "mime" to null,
+                        "modified" to f.lastModified(),
+                        "uri" to null,
+                    ),
+                )
+            }
+        }
+
+        runCatching { walk(root, 0) }
+        return out
     }
 
     // ---------- 使用时长 ----------
