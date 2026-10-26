@@ -246,7 +246,7 @@ class _BriefingPageState extends State<BriefingPage> {
   Widget _dateRail(ThemeData theme) {
     final now = DateTime.now();
     final days = <DateTime>[
-      for (var i = 6; i >= 0; i--) DateTime(now.year, now.month, now.day - i)
+      for (var i = 0; i < 7; i++) DateTime(now.year, now.month, now.day - i)
     ];
     return SizedBox(
       height: 74,
@@ -259,9 +259,9 @@ class _BriefingPageState extends State<BriefingPage> {
           final d = days[i];
           final key = '${d.year}-${_two(d.month)}-${_two(d.day)}';
           final active = key == _date;
-          final label = i == days.length - 1
+          final label = i == 0
               ? '今天'
-              : (i == days.length - 2 ? '昨天' : _weekday(d));
+              : (i == 1 ? '昨天' : _weekday(d));
           return GestureDetector(
             onTap: () {
               if (key == _date) return;
@@ -649,16 +649,17 @@ class _BriefingPageState extends State<BriefingPage> {
                     ),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: _requesting ? null : _requestBriefing,
-                  icon: const Icon(Icons.autorenew_rounded, size: 15),
-                  label: const Text('重新生成',
-                      style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: theme.colorScheme.primary,
+                if (_isToday)
+                  TextButton.icon(
+                    onPressed: _requesting ? null : _requestBriefing,
+                    icon: const Icon(Icons.autorenew_rounded, size: 15),
+                    label: const Text('重新生成',
+                        style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: theme.colorScheme.primary,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
