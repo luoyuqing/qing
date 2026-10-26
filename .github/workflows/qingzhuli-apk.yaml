@@ -63,7 +63,7 @@ jobs:
           $ANDROID_HOME/build-tools/*/apksigner verify --print-certs "$APK" | head -20
 
       - name: 上传 APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qingzhuli-signed-apks
           path: build/app/outputs/apk/release/*.apk
