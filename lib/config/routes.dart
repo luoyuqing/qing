@@ -31,6 +31,7 @@ import 'package:fluffychat/pages/settings_ignore_list/settings_ignore_list.dart'
 import 'package:fluffychat/pages/settings_notifications/settings_notifications.dart';
 import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
+import 'package:fluffychat/pages/settings_device_hub/device_hub_page.dart';
 import 'package:fluffychat/pages/settings_style/settings_style.dart';
 import 'package:fluffychat/pages/sign_in/sign_in_page.dart';
 import 'package:fluffychat/widgets/config_viewer.dart';
@@ -236,6 +237,15 @@ abstract class AppRoutes {
                         context,
                         state,
                         const SettingsNotifications(),
+                      ),
+                      redirect: loggedOutRedirect,
+                    ),
+                    GoRoute(
+                      path: 'device-hub',
+                      pageBuilder: (context, state) => defaultPageBuilder(
+                        context,
+                        state,
+                        const DeviceHubPage(),
                       ),
                       redirect: loggedOutRedirect,
                     ),

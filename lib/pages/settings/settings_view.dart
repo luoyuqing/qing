@@ -211,6 +211,15 @@ class SettingsView extends StatelessWidget {
               onTap: () => context.go('/rooms/settings/notifications'),
             ),
             ListTile(
+              leading: const Icon(Icons.memory_outlined),
+              title: const Text('设备数据'),
+              subtitle: const Text('通知 · 日历 · 通讯录 · 应用时长'),
+              tileColor: activeRoute.startsWith('/rooms/settings/device-hub')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/settings/device-hub'),
+            ),
+            ListTile(
               leading: const Icon(Icons.devices_outlined),
               title: Text(L10n.of(context).devices),
               onTap: () => context.go('/rooms/settings/devices'),

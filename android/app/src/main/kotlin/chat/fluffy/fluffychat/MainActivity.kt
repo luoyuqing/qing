@@ -6,11 +6,26 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor.DartEntrypoint
 
 import android.content.Context
+import android.os.Bundle
 
 class MainActivity : FlutterFragmentActivity() {
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        DeviceDataBridge.attachActivity(this)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        DeviceDataBridge.onRequestPermissionsResult(requestCode)
     }
 
 
@@ -22,6 +37,8 @@ class MainActivity : FlutterFragmentActivity() {
         // 注册后台同步桥（引擎在 provideEngine 里就已经配置过一次，
         // 这里再注册保证 Activity 自己的引擎也带着 channel）
         BackgroundSyncBridge.register(flutterEngine, applicationContext)
+        DeviceDataBridge.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
+        DeviceDataBridge.attachActivity(this)
     }
 
     // Prevent Flutter engine gets destroyed on back button close.
@@ -36,6 +53,7 @@ class MainActivity : FlutterFragmentActivity() {
             val eng = engine ?: FlutterEngine(context, emptyArray(), true, false)
             // 后台同步前台服务也用这个引擎，桥必须挂上
             BackgroundSyncBridge.register(eng, context.applicationContext)
+            DeviceDataBridge.register(eng.dartExecutor.binaryMessenger, context.applicationContext)
             engine = eng
             return eng
         }

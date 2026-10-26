@@ -1,0 +1,281 @@
+package chat.fluffy.fluffychat
+
+import android.Manifest
+import android.app.Activity
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.CalendarContract
+import android.provider.ContactsContract
+import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.BinaryMessenger
+import java.lang.ref.WeakReference
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * 清助理 · 设备数据桥
+ *
+ * 只读采集：通知（通知监听服务缓存）、日历、通讯录、应用使用时长。
+ * 全部在本机读取，交给 Dart 侧上传到用户自己的 device-hub。
+ */
+object DeviceDataBridge : MethodChannel.MethodCallHandler {
+    private const val CHANNEL = "chat.qingzhuli/device_data"
+    private const val PREFS = "qingzhuli_device_data"
+    private const val REQ_PERMS = 4101
+
+    private var channel: MethodChannel? = null
+    private var appContext: Context? = null
+    private var activityRef: WeakReference<Activity>? = null
+    private var pendingPermissionResult: MethodChannel.Result? = null
+
+    fun register(messenger: BinaryMessenger, context: Context) {
+        val ch = MethodChannel(messenger, CHANNEL)
+        ch.setMethodCallHandler(this)
+        channel = ch
+        appContext = context.applicationContext
+    }
+
+    fun attachActivity(activity: Activity) {
+        activityRef = WeakReference(activity)
+        appContext = activity.applicationContext
+    }
+
+    private fun ctx(): Context? = appContext ?: activityRef?.get()?.applicationContext
+
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "status" -> result.success(statusMap())
+            "openNotificationSettings" -> openSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS, result)
+            "openUsageSettings" -> openSettings(Settings.ACTION_USAGE_ACCESS_SETTINGS, result)
+            "openAppSettings" -> {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", ctx()?.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                runCatching { ctx()?.startActivity(intent) }
+                result.success(true)
+            }
+            "requestCalendarContacts" -> requestCalendarContacts(result)
+            "notifications" -> result.success(readNotifications(call.argument<Int>("limit") ?: 50))
+            "calendar" -> {
+                val from = call.argument<Long>("fromMs") ?: (System.currentTimeMillis() - 86_400_000L)
+                val to = call.argument<Long>("toMs") ?: (System.currentTimeMillis() + 30L * 86_400_000L)
+                result.success(readCalendar(from, to))
+            }
+            "contacts" -> result.success(readContacts(call.argument<Int>("limit") ?: 500))
+            "usage" -> {
+                val from = call.argument<Long>("fromMs") ?: startOfToday()
+                val to = call.argument<Long>("toMs") ?: System.currentTimeMillis()
+                result.success(readUsage(from, to))
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun openSettings(action: String, result: MethodChannel.Result) {
+        val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { ctx()?.startActivity(intent) }
+        result.success(true)
+    }
+
+    private fun statusMap(): Map<String, Any> {
+        val c = ctx()
+        val notificationEnabled = c != null && run {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+                nm?.isNotificationListenerAccessGranted(
+                    android.content.ComponentName(c, QingNotificationListener::class.java)
+                ) ?: false
+            } else {
+                Settings.Secure.getString(c.contentResolver, "enabled_notification_listeners")
+                    ?.contains(c.packageName) == true
+            }
+        }
+        val calendar = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+        val contacts = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        val usage = hasUsageAccess(c)
+        return mapOf(
+            "notification" to notificationEnabled,
+            "calendar" to calendar,
+            "contacts" to contacts,
+            "usage" to usage,
+            "android" to Build.VERSION.RELEASE,
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
+        )
+    }
+
+    private fun hasUsageAccess(c: Context?): Boolean {
+        if (c == null) return false
+        val appOps = c.getSystemService(Context.APP_OPS_SERVICE) as? android.app.AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), c.packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), c.packageName)
+        }
+        return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestCalendarContacts(result: MethodChannel.Result) {
+        val activity = activityRef?.get()
+        if (activity == null) {
+            result.error("no_activity", "需要在前台页面申请权限", null)
+            return
+        }
+        val missing = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.READ_CALENDAR)
+        }
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.READ_CONTACTS)
+        }
+        if (missing.isEmpty()) {
+            result.success(statusMap())
+            return
+        }
+        pendingPermissionResult = result
+        ActivityCompat.requestPermissions(activity, missing.toTypedArray(), REQ_PERMS)
+    }
+
+    fun onRequestPermissionsResult(requestCode: Int) {
+        if (requestCode != REQ_PERMS) return
+        pendingPermissionResult?.success(statusMap())
+        pendingPermissionResult = null
+    }
+
+    // ---------- 通知 ----------
+    private fun readNotifications(limit: Int): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        val prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val raw = prefs.getString("notifications", "[]") ?: "[]"
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            val out = ArrayList<Map<String, Any?>>()
+            var i = arr.length() - 1
+            while (i >= 0 && out.size < limit) {
+                val o = arr.getJSONObject(i)
+                out.add(mapOf(
+                    "package" to o.optString("package"),
+                    "appName" to o.optString("appName"),
+                    "title" to o.optString("title"),
+                    "text" to o.optString("text"),
+                    "postedAt" to o.optLong("postedAt"),
+                ))
+                i--
+            }
+            out
+        }.getOrDefault(emptyList())
+    }
+
+    // ---------- 日历 ----------
+    private fun readCalendar(from: Long, to: Long): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        if (ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) return emptyList()
+        val uri: Uri = CalendarContract.Instances.CONTENT_URI.buildUpon()
+            .appendPath(from.toString()).appendPath(to.toString()).build()
+        val projection = arrayOf(
+            CalendarContract.Instances.EVENT_ID,
+            CalendarContract.Instances.CALENDAR_ID,
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.DESCRIPTION,
+            CalendarContract.Instances.EVENT_LOCATION,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
+            CalendarContract.Instances.ALL_DAY,
+        )
+        val out = ArrayList<Map<String, Any?>>()
+        runCatching {
+            c.contentResolver.query(uri, projection, null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { cur ->
+                while (cur.moveToNext() && out.size < 500) {
+                    out.add(mapOf(
+                        "id" to cur.getLong(0).toString(),
+                        "calendarId" to cur.getLong(1).toString(),
+                        "title" to cur.getString(2),
+                        "description" to cur.getString(3),
+                        "location" to cur.getString(4),
+                        "startAt" to cur.getLong(5),
+                        "endAt" to cur.getLong(6),
+                        "allDay" to (cur.getInt(7) == 1),
+                    ))
+                }
+            }
+        }
+        return out
+    }
+
+    // ---------- 通讯录 ----------
+    private fun readContacts(limit: Int): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        if (ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return emptyList()
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.TYPE,
+        )
+        val grouped = LinkedHashMap<String, MutableMap<String, Any?>>()
+        runCatching {
+            c.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection, null, null,
+                "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
+            )?.use { cur ->
+                while (cur.moveToNext() && grouped.size < limit) {
+                    val id = cur.getLong(0).toString()
+                    val name = cur.getString(1) ?: ""
+                    val number = cur.getString(2) ?: ""
+                    val entry = grouped.getOrPut(id) {
+                        mutableMapOf("id" to id, "name" to name, "phones" to mutableListOf<String>(), "emails" to mutableListOf<String>())
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    val phones = entry["phones"] as MutableList<String>
+                    if (number.isNotBlank() && !phones.contains(number)) phones.add(number)
+                }
+            }
+        }
+        return grouped.values.toList()
+    }
+
+    // ---------- 使用时长 ----------
+    private fun readUsage(from: Long, to: Long): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        val usm = c.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyList()
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, from, to) ?: return emptyList()
+        val pm = c.packageManager
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(from))
+        return stats.filter { it.totalTimeInForeground > 0 }
+            .sortedByDescending { it.totalTimeInForeground }
+            .take(100)
+            .map { s ->
+                val label = runCatching {
+                    pm.getApplicationLabel(pm.getApplicationInfo(s.packageName, 0)).toString()
+                }.getOrDefault(s.packageName)
+                mapOf(
+                    "date" to day,
+                    "package" to s.packageName,
+                    "appName" to label,
+                    "totalMs" to s.totalTimeInForeground,
+                    "lastUsed" to s.lastTimeUsed,
+                )
+            }
+    }
+
+    private fun startOfToday(): Long {
+        val c = java.util.Calendar.getInstance()
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        c.set(java.util.Calendar.MINUTE, 0)
+        c.set(java.util.Calendar.SECOND, 0)
+        c.set(java.util.Calendar.MILLISECOND, 0)
+        return c.timeInMillis
+    }
+}
