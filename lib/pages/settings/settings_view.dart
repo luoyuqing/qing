@@ -222,6 +222,24 @@ class SettingsView extends StatelessWidget {
               onTap: () => context.go('/rooms/settings/device-hub'),
             ),
             ListTile(
+              leading: const Icon(Icons.extension_outlined),
+              title: const Text('连接应用'),
+              subtitle: const Text('MCP 服务（由 X2 代理，凭据不上手机）'),
+              tileColor: activeRoute.startsWith('/rooms/settings/mcp')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/settings/mcp'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: const Text('数据与隐私'),
+              subtitle: const Text('数据保留策略 · 存储位置'),
+              tileColor: activeRoute.startsWith('/rooms/settings/privacy')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/settings/privacy'),
+            ),
+            ListTile(
               leading: const Icon(Icons.devices_outlined),
               title: Text(L10n.of(context).devices),
               onTap: () => context.go('/rooms/settings/devices'),

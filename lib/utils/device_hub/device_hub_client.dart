@@ -95,6 +95,47 @@ class DeviceHubClient {
     return token;
   }
 
+  static Future<Map<String, dynamic>> _postJson(
+    String path,
+    Map<String, dynamic> body,
+    {Duration timeout = const Duration(seconds: 90)}
+  ) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .post(Uri.parse('$base$path'),
+            headers: _headers(authToken), body: jsonEncode(body))
+        .timeout(timeout);
+    if (resp.statusCode != 200) {
+      throw Exception(_errText(resp));
+    }
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> _patchJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .patch(Uri.parse('$base$path'),
+            headers: _headers(authToken), body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) throw Exception(_errText(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  static String _errText(http.Response resp) {
+    try {
+      final body = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (body is Map && body['error'] != null) return '${body['error']}';
+    } catch (_) {}
+    return 'HTTP ${resp.statusCode}';
+  }
+
   /// 只读 GET（简报 / 任务 / 记忆）
   static Future<Map<String, dynamic>> getJson(
     String path, {
@@ -193,3 +234,60 @@ class DeviceHubClient {
 
   static String _two(int v) => v.toString().padLeft(2, '0');
 }
+
+  // ---------- 连接应用（MCP，由 hub 代理） ----------
+  static Future<List<Map<String, dynamic>>> mcpServers() async {
+    final data = await getJson('/mcp/servers');
+    return (data['items'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> addMcpServer({
+    required String name,
+    required String url,
+    String? token,
+  }) =>
+      _postJson('/mcp/servers', {
+        'name': name,
+        'url': url,
+        if (token != null && token.trim().isNotEmpty) 'token': token.trim(),
+      });
+
+  static Future<Map<String, dynamic>> refreshMcpServer(int id) =>
+      _postJson('/mcp/servers/$id/refresh', {});
+
+  static Future<Map<String, dynamic>> callMcpTool({
+    required int serverId,
+    required String tool,
+    required Map<String, dynamic> arguments,
+  }) =>
+      _postJson('/mcp/call', {
+        'server_id': serverId,
+        'tool': tool,
+        'arguments': arguments,
+      });
+
+  static Future<void> deleteMcpServer(int id) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .delete(Uri.parse('$base/mcp/servers/$id'), headers: _headers(authToken))
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) throw Exception(_errText(resp));
+  }
+
+  // ---------- 数据保留策略 ----------
+  static Future<Map<String, dynamic>> retention() => getJson('/admin/retention');
+
+  static Future<Map<String, dynamic>> setRetention({
+    required int notifyDays,
+    required int locationDays,
+  }) =>
+      _patchJson('/admin/retention', {
+        'notify_days': notifyDays,
+        'location_days': locationDays,
+      });
+

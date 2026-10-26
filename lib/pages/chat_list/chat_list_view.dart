@@ -95,19 +95,7 @@ class ChatListView extends StatelessWidget {
                     child: ChatListViewBody(controller),
                   ),
                 ),
-                floatingActionButton:
-                    !controller.isSearchMode &&
-                        controller.activeSpaceId == null &&
-                        !FluffyThemes.isColumnMode(context)
-                    ? ValueListenableBuilder(
-                        valueListenable: controller.scrolledToTop,
-                        builder: (context, scrolledToTop, _) => StartChatFab(
-                          extended:
-                              scrolledToTop &&
-                              !AppSettings.displayNavigationRail.value,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                // 新建聊天已移到右上角头像菜单（清助理）
               ),
             ),
           ),

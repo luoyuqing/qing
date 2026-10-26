@@ -33,6 +33,8 @@ import 'package:fluffychat/pages/settings_password/settings_password.dart';
 import 'package:fluffychat/pages/settings_security/settings_security.dart';
 import 'package:fluffychat/pages/briefing/briefing_page.dart';
 import 'package:fluffychat/pages/memory/memory_page.dart';
+import 'package:fluffychat/pages/mcp_servers/mcp_servers_page.dart';
+import 'package:fluffychat/pages/privacy/retention_page.dart';
 import 'package:fluffychat/pages/settings_device_hub/device_hub_page.dart';
 import 'package:fluffychat/pages/tasks/tasks_page.dart';
 import 'package:fluffychat/pages/settings_style/settings_style.dart';
@@ -268,6 +270,18 @@ abstract class AppRoutes {
                         state,
                         const DeviceHubPage(),
                       ),
+                      redirect: loggedOutRedirect,
+                    ),
+                    GoRoute(
+                      path: 'mcp',
+                      pageBuilder: (context, state) =>
+                          defaultPageBuilder(context, state, const McpServersPage()),
+                      redirect: loggedOutRedirect,
+                    ),
+                    GoRoute(
+                      path: 'privacy',
+                      pageBuilder: (context, state) =>
+                          defaultPageBuilder(context, state, const RetentionPage()),
                       redirect: loggedOutRedirect,
                     ),
                     GoRoute(

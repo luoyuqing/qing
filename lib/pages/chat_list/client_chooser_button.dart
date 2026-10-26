@@ -152,6 +152,16 @@ class ClientChooserButton extends StatelessWidget {
           ],
         ),
       ),
+      PopupMenuItem(
+        value: SettingsAction.newChat,
+        child: Row(
+          children: [
+            const Icon(Icons.edit_square),
+            const SizedBox(width: 18),
+            Text(L10n.of(context).newChat),
+          ],
+        ),
+      ),
     ];
   }
 
@@ -194,6 +204,9 @@ class ClientChooserButton extends StatelessWidget {
           if (!context.mounted) return;
           context.go('/rooms/settings/addaccount');
           break;
+        case SettingsAction.newChat:
+          context.go('/rooms/newprivatechat');
+          break;
         case SettingsAction.newGroup:
           context.go('/rooms/newgroup');
           break;
@@ -218,6 +231,7 @@ class ClientChooserButton extends StatelessWidget {
 }
 
 enum SettingsAction {
+  newChat,
   addAccount,
   newGroup,
   setStatus,
