@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 name: fluffychat
-description: Qchat —— 极简 Matrix 聊天客户端。
+description: 清助理 —— 个人 AI 助理客户端（基于 Matrix，衍生自 Qchat）。
 publish_to: none
 # On version bump please also increase the build number (for F-Droid)
-version: 2.11.2+3572
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.11.1 <4.0.0"
