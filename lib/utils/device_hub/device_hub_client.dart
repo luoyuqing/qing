@@ -351,4 +351,122 @@ class DeviceHubClient {
   static Future<Map<String, dynamic>> callConnector(
           String name, Map<String, dynamic> params) =>
       _postJson('/connectors/$name/call', {'params': params});
+
+  // ---------- 人设 / 会话 / 定时任务（多人设） ----------
+  static Future<List<Map<String, dynamic>>> personas() async {
+    final data = await getJson('/personas');
+    return _asMaps(data['items']);
+  }
+
+  static Future<List<Map<String, dynamic>>> sessions({
+    String persona = 'default',
+    int limit = 30,
+  }) async {
+    final data =
+        await getJson('/tasks/sessions', query: {'persona': persona, 'limit': '$limit'});
+    return _asMaps(data['items']);
+  }
+
+  static Future<List<Map<String, dynamic>>> sessionMessages(
+    String sessionId, {
+    String persona = 'default',
+    int limit = 80,
+  }) async {
+    final data = await getJson(
+      '/tasks/sessions/$sessionId/messages',
+      query: {'persona': persona, 'limit': '$limit'},
+    );
+    return _asMaps(data['items']);
+  }
+
+  static Future<List<Map<String, dynamic>>> routines({
+    String persona = 'default',
+  }) async {
+    final data = await getJson('/routines', query: {'persona': persona});
+    return _asMaps(data['items']);
+  }
+
+  static Future<Map<String, dynamic>> routine(
+    String id, {
+    String persona = 'default',
+  }) async {
+    final data = await getJson('/routines/$id', query: {'persona': persona});
+    return Map<String, dynamic>.from((data['job'] as Map?) ?? {});
+  }
+
+  static Future<Map<String, dynamic>> updateRoutine(
+    String id, {
+    String persona = 'default',
+    String? name,
+    String? prompt,
+    String? schedule,
+    bool? enabled,
+  }) =>
+      _patchJson('/routines/$id?persona=$persona', {
+        if (name != null) 'name': name,
+        if (prompt != null) 'prompt': prompt,
+        if (schedule != null) 'schedule': schedule,
+        if (enabled != null) 'enabled': enabled,
+      });
+
+  // ---------- 记忆 / 画像 / 技能 ----------
+  static Future<Map<String, dynamic>> memory({String persona = 'default'}) =>
+      getJson('/memory', query: {'persona': persona});
+
+  static Future<void> saveMemory({
+    String persona = 'default',
+    required String kind,
+    required String content,
+  }) async {
+    await _postJson('/memory', {
+      'persona': persona,
+      'kind': kind,
+      'content': content,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> skills({
+    String persona = 'default',
+  }) async {
+    final data = await getJson('/skills', query: {'persona': persona});
+    return _asMaps(data['items']);
+  }
+
+  static Future<Map<String, dynamic>> skill(
+    String path, {
+    String persona = 'default',
+  }) =>
+      getJson('/skills/${Uri.encodeComponent(path)}', query: {'persona': persona});
+
+  static Future<void> saveSkill(
+    String path, {
+    String persona = 'default',
+    required String content,
+  }) async {
+    await _postJson('/skills/${Uri.encodeComponent(path)}',
+        {'persona': persona, 'content': content});
+  }
+
+  static Future<void> deleteSkill(
+    String path, {
+    String persona = 'default',
+  }) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .delete(
+          Uri.parse('$base/skills/${Uri.encodeComponent(path)}')
+              .replace(queryParameters: {'persona': persona}),
+          headers: _headers(authToken),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) throw Exception(_errText(resp));
+  }
+
+  static List<Map<String, dynamic>> _asMaps(dynamic value) =>
+      (value as List? ?? [])
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
 }
