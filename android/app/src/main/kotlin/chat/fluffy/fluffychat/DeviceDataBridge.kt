@@ -70,6 +70,8 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             "requestCalendarContacts" -> requestCalendarContacts(result)
             "requestLocation" -> requestPermission(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), result)
+            "requestFiles" -> requestFiles(result)
+            "openAllFilesAccess" -> openAllFilesAccess(result)
             "notifications" -> result.success(readNotifications(call.argument<Int>("limit") ?: 50))
             "calendar" -> {
                 val from = call.argument<Long>("fromMs") ?: (System.currentTimeMillis() - 86_400_000L)
@@ -115,8 +117,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         val usage = hasUsageAccess(c)
         val location = c != null && (ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-        val files = c != null && (Build.VERSION.SDK_INT >= 33 ||
-            ContextCompat.checkSelfPermission(c, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
+        val files = c != null && hasFileAccess(c)
         return mapOf(
             "notification" to notificationEnabled,
             "calendar" to calendar,
@@ -141,6 +142,60 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 android.os.Process.myUid(), c.packageName)
         }
         return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun hasFileAccess(c: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()) {
+            return true
+        }
+        return if (Build.VERSION.SDK_INT >= 33) {
+            listOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_AUDIO,
+            ).any { ContextCompat.checkSelfPermission(c, it) == PackageManager.PERMISSION_GRANTED }
+        } else {
+            ContextCompat.checkSelfPermission(c, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    /** Android 13+ 走媒体权限；12 及以下走存储权限。 */
+    private fun requestFiles(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            requestPermission(
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.READ_MEDIA_AUDIO,
+                ),
+                result,
+            )
+        } else {
+            requestPermission(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), result)
+        }
+    }
+
+    /** 「所有文件访问权限」— 只有它能列出非媒体文件（文档/下载/压缩包）。 */
+    private fun openAllFilesAccess(result: MethodChannel.Result) {
+        val c = ctx()
+        if (c == null || Build.VERSION.SDK_INT < 30) {
+            result.success(false)
+            return
+        }
+        val ok = runCatching {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                data = Uri.parse("package:${c.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            c.startActivity(intent)
+        }.recoverCatching {
+            c.startActivity(
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.isSuccess
+        result.success(ok)
     }
 
     private fun requestPermission(perms: Array<String>, result: MethodChannel.Result) {
@@ -313,31 +368,49 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             MediaStore.Files.FileColumns.SIZE,
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATE_MODIFIED,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
         )
-        val selection = if (query.isBlank()) null else "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
+        val selection = if (query.isBlank()) null
+        else "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
         val args = if (query.isBlank()) null else arrayOf("%$query%")
-        val out = ArrayList<Map<String, Any?>>()
-        runCatching {
-            c.contentResolver.query(
-                MediaStore.Files.getContentUri("external"),
-                projection, selection, args,
-                "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC",
-            )?.use { cur ->
-                while (cur.moveToNext() && out.size < limit) {
-                    val id = cur.getLong(0)
-                    out.add(mapOf(
-                        "id" to id.toString(),
-                        "name" to cur.getString(1),
-                        "size" to cur.getLong(2),
-                        "mime" to cur.getString(3),
-                        "modified" to cur.getLong(4) * 1000,
-                        "uri" to ContentUris.withAppendedId(MediaStore.Files.getContentUri("external"), id).toString(),
-                    ))
+
+        // 先查 Files（需要「所有文件访问」才能看到全部），
+        // 再查四类媒体集合兜底（Android 13+ 只要给了媒体权限就有内容）。
+        val uris = buildList {
+            add(MediaStore.Files.getContentUri("external"))
+            if (Build.VERSION.SDK_INT >= 29) add(MediaStore.Downloads.getContentUri("external"))
+            add(MediaStore.Images.Media.getContentUri("external"))
+            add(MediaStore.Video.Media.getContentUri("external"))
+            add(MediaStore.Audio.Media.getContentUri("external"))
+        }
+
+        val merged = LinkedHashMap<String, Map<String, Any?>>()
+        for (uri in uris) {
+            runCatching {
+                c.contentResolver.query(
+                    uri, projection, selection, args,
+                    "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC",
+                )?.use { cur ->
+                    while (cur.moveToNext()) {
+                        val name = cur.getString(1) ?: continue
+                        val size = cur.getLong(2)
+                        val key = "$name|$size"
+                        if (merged.containsKey(key)) continue
+                        val id = cur.getLong(0)
+                        merged[key] = mapOf(
+                            "id" to id.toString(),
+                            "name" to name,
+                            "size" to size,
+                            "mime" to cur.getString(3),
+                            "modified" to cur.getLong(4) * 1000,
+                            "uri" to ContentUris.withAppendedId(uri, id).toString(),
+                        )
+                    }
                 }
             }
         }
-        return out
+        return merged.values
+            .sortedByDescending { (it["modified"] as? Long) ?: 0L }
+            .take(limit)
     }
 
     // ---------- 使用时长 ----------

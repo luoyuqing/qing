@@ -28,7 +28,7 @@ class DeviceHubPoller {
           await Future<void>.delayed(const Duration(seconds: 15));
           continue;
         }
-        final cmd = await DeviceHubClient.pollDevice(waitSeconds: 20);
+        final cmd = await DeviceHubClient.pollDevice(waitSeconds: 12);
         if (cmd == null) continue;
         await _handle(cmd);
       } catch (_) {

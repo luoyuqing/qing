@@ -71,6 +71,16 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
     }
   }
 
+  Future<DevicePermissionStatus?> _statusNow() async {
+    try {
+      final s = await DeviceDataBridge.status();
+      if (mounted) setState(() => _status = s);
+      return s;
+    } catch (_) {
+      return _status;
+    }
+  }
+
   Future<void> _refreshStatus() async {
     final status = await _safeStatus();
     if (!mounted) return;
@@ -280,9 +290,16 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             context,
             icon: Icons.folder_outlined,
             title: '文件',
-            subtitle: '按需查询文件名/大小（不读取内容，不遍历目录）',
+            subtitle: '按需查文件名/大小（不读内容）。Android 13+ 先给媒体权限；'
+                '要列文档类再点一次开「所有文件访问」',
             granted: status?.files ?? false,
-            onTap: () => DeviceDataBridge.openAppSettings(),
+            onTap: () async {
+              await DeviceDataBridge.requestFiles();
+              await _refreshStatus();
+              if ((await _statusNow())?.files != true) {
+                await DeviceDataBridge.openAllFilesAccess();
+              }
+            },
           ),
           if (status != null)
             Padding(

@@ -84,6 +84,15 @@ class DeviceDataBridge {
   static Future<void> openAppSettings() =>
       _channel.invokeMethod('openAppSettings');
 
+  static Future<DevicePermissionStatus> requestFiles() async {
+    final map = await _channel.invokeMethod<Map>('requestFiles');
+    return DevicePermissionStatus.fromMap(map ?? const {});
+  }
+
+  /// 跳「所有文件访问权限」（能列出文档/压缩包等非媒体文件）
+  static Future<bool> openAllFilesAccess() async =>
+      await _channel.invokeMethod<bool>('openAllFilesAccess') ?? false;
+
   static Future<DevicePermissionStatus> requestLocation() async {
     final map = await _channel.invokeMethod<Map>('requestLocation');
     return DevicePermissionStatus.fromMap(map ?? const {});
