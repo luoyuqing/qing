@@ -1,5 +1,6 @@
 import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/qing_boot.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
@@ -166,6 +167,54 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
     _notify('已解除配对（服务器侧可再手动吊销）');
   }
 
+  /// 短信读取自检
+  ///
+  /// 授权后点一下就能看到**真机上实际读到的条数与摘要**，用来确认
+  /// 「权限 → 原生读取」这一段是通的，不必先绕一圈服务器。
+  Future<void> _testSms() async {
+    setState(() => _busy = true);
+    try {
+      final items = await DeviceDataBridge.sms(limit: 5);
+      if (!mounted) return;
+      final preview = items.isEmpty
+          ? '没有读到短信。\n可能原因：收件箱为空、系统限制了短信读取，或权限被回收。'
+          : items.map((e) {
+              final t = DateTime.fromMillisecondsSinceEpoch(e.dateMs);
+              final who = e.person.isNotEmpty ? e.person : e.address;
+              final dir = e.isIncoming ? '收到' : '发出';
+              final body = e.body.length > 48
+                  ? '${e.body.substring(0, 48)}…'
+                  : e.body;
+              return '$dir · $who\n'
+                  '${_two(t.month)}-${_two(t.day)} ${_two(t.hour)}:${_two(t.minute)}  $body';
+            }).join('\n\n');
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('短信读取自检 · ${items.length} 条'),
+          content: SingleChildScrollView(
+            child: Text(
+              preview,
+              style: const TextStyle(fontSize: 13, height: 1.55),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _notify('读取短信失败：$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  static String _two(int v) => v.toString().padLeft(2, '0');
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -273,6 +322,23 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
           ),
           _permissionTile(
             context,
+            icon: Icons.sms_outlined,
+            title: '短信',
+            subtitle: (status?.sms ?? false)
+                ? '可读取收件箱与已发送（只读，点一下做自检）'
+                : '读取短信内容，供小爱查验证码、银行/快递通知（只读，不发送）',
+            granted: status?.sms ?? false,
+            onTap: () async {
+              if (status?.sms == true) {
+                await _testSms();
+              } else {
+                await DeviceDataBridge.requestSms();
+                await _refreshStatus();
+              }
+            },
+          ),
+          _permissionTile(
+            context,
             icon: Icons.bar_chart_outlined,
             title: '应用使用时长',
             subtitle: '统计各 App 使用时间（系统「使用情况访问」）',
@@ -313,7 +379,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 '${status.model} · Android ${status.androidVersion} · '
-                '已授权 ${status.grantedCount}/6',
+                '已授权 ${status.grantedCount}/${DevicePermissionStatus.totalCount}',
                 style: theme.textTheme.bodySmall,
               ),
             ),
@@ -345,6 +411,9 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
                 ),
               ),
             ),
+          const Divider(),
+          _sectionTitle(context, '启动诊断'),
+          _bootTimingsTile(context),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: Text(
@@ -381,11 +450,67 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: granted
-            ? const Icon(Icons.check_circle, color: Colors.green)
+            ? const Icon(
+                Icons.check_circle,
+                color: Color(0xFF2E7D52),
+              )
             : FilledButton.tonal(
                 onPressed: onTap,
                 child: const Text('去开启'),
               ),
         onTap: onTap,
       );
+
+  /// 启动诊断：展示上次启动各阶段耗时
+  ///
+  /// 真机上核对「冷启动/热启动是否达标」就看这里，不用连电脑抓日志。
+  Widget _bootTimingsTile(BuildContext context) {
+    final timings = QingBoot.lastTimings();
+    const labels = <String, String>{
+      'config': '配置',
+      'crypto': '加密引擎',
+      'database': '数据库',
+      'rooms': '会话',
+      'applock': '应用锁',
+      'total': '合计',
+    };
+    final parts = <String>[];
+    for (final entry in labels.entries) {
+      final ms = timings[entry.key];
+      if (ms == null) continue;
+      parts.add('${entry.value} ${_fmtMs(ms)}');
+    }
+    final ok = parts.isNotEmpty;
+    final total = timings['total'];
+    return ListTile(
+      leading: Icon(
+        Icons.speed_outlined,
+        color: ok ? null : Theme.of(context).colorScheme.outline,
+      ),
+      title: const Text('上次启动耗时'),
+      subtitle: Text(
+        ok ? parts.join(' · ') : '还没有记录（本次是启动后的第一个会话）',
+      ),
+      trailing: total == null
+          ? null
+          : Text(
+              _fmtMs(total),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: total < 0
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.primary,
+              ),
+            ),
+      isThreeLine: ok,
+    );
+  }
+
+  static String _fmtMs(int ms) {
+    if (ms == -1) return '超时';
+    if (ms == -2) return '异常';
+    if (ms >= 1000) return '${(ms / 1000).toStringAsFixed(1)}s';
+    return '${ms}ms';
+  }
 }

@@ -20,8 +20,11 @@ import 'package:universal_html/html.dart' as html;
 import 'cipher.dart';
 
 Future<DatabaseApi> flutterMatrixSdkDatabaseBuilder(String clientName) async {
+  final stopwatch = Stopwatch()..start();
   try {
-    return await _constructDatabase(clientName);
+    final db = await _constructDatabase(clientName);
+    Logs().i('[db] 打开成功 ${stopwatch.elapsedMilliseconds}ms');
+    return db;
   } catch (e, s) {
     Logs().wtf('Unable to construct database!', e, s);
 
@@ -38,16 +41,61 @@ Future<DatabaseApi> flutterMatrixSdkDatabaseBuilder(String clientName) async {
       Logs().e('Unable to send error notification', e, s);
     }
 
-    // Delete database file:
+    // 清助理 v1.9.0：**不再直接删除数据库**
+    //
+    // 旧实现在这里 `delete()`，一旦是「密钥读不到 / 迁移中途失败」这类
+    // 可恢复问题，就会把用户全部本地历史（含加密账号）静默销毁，随后
+    // 触发全量重新同步 —— 正是升级后长时间卡在开屏的原因，而且不可逆。
+    //
+    // 现在改成重命名留档：数据库照样重建，但旧文件还在，事后能捞。
     if (!kIsWeb) {
-      final dbFile = File(await _getDatabasePath(clientName));
-      if (await dbFile.exists()) await dbFile.delete();
+      await _quarantineDatabase(await _getDatabasePath(clientName), 'open-failed');
     }
 
     // Try again
     return await _constructDatabase(clientName);
   }
 }
+
+/// 把有问题的数据库文件改名留档（而不是删除）
+///
+/// 保留最近 [keep] 份，避免反复启动把存储撑满。
+Future<void> _quarantineDatabase(String path, String reason) async {
+  final file = File(path);
+  if (!await file.exists()) return;
+  final stamp = DateTime.now()
+      .toIso8601String()
+      .replaceAll(':', '')
+      .replaceAll('-', '')
+      .split('.')
+      .first;
+  final target = '$path.$reason-$stamp.bak';
+  try {
+    await file.rename(target);
+    Logs().w('[db] 已将异常数据库留档为 $target（未删除）');
+  } catch (e, s) {
+    Logs().e('[db] 留档失败，保持原文件不动', e, s);
+    rethrow;
+  }
+
+  // 只保留最近 2 份留档
+  try {
+    final dir = file.parent;
+    final prefix = '${file.path.split(Platform.pathSeparator).last}.$reason-';
+    final backups = await dir
+        .list()
+        .where((e) => e.path.split(Platform.pathSeparator).last.startsWith(prefix))
+        .toList();
+    backups.sort((a, b) => a.path.compareTo(b.path));
+    while (backups.length > 2) {
+      final oldest = backups.removeAt(0);
+      await oldest.delete().catchError((_) => oldest);
+    }
+  } catch (e, s) {
+    Logs().w('[db] 清理旧留档失败', e, s);
+  }
+}
+
 
 Future<Directory?> getFileStorageLocation() async {
   try {
@@ -114,8 +162,9 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
   try {
     database = await factory.openDatabase(path, options: openDatabaseOptions);
   } catch (e, s) {
-    Logs().wtf('Unable to open database! Delete file and try again...', e, s);
-    await File(path).delete();
+    Logs().wtf('Unable to open database! Quarantine file and try again...', e, s);
+    // 清助理 v1.9.0：留档而非删除，避免把用户历史静默销毁
+    await _quarantineDatabase(path, 'corrupt');
     database = await openDatabase(path, options: openDatabaseOptions);
   }
 
@@ -172,11 +221,31 @@ Future<void> _migrateLegacyLocation(
   if (oldFilePath == sqlFilePath) return;
 
   final maybeOldFile = File(oldFilePath);
-  if (await maybeOldFile.exists()) {
+  if (!await maybeOldFile.exists()) return;
+
+  // 清助理 v1.9.0：目标库已存在 → 之前早就迁移过了，旧文件只是残留。
+  // 旧实现不管目标是否存在都会 `copy + delete`，一旦 delete 失败（权限、
+  // 文件被占用），**每次冷启动都要整库复制一遍**，大库上这是几秒级阻塞。
+  final target = File(sqlFilePath);
+  if (await target.exists()) {
     Logs().i(
-      'Migrate legacy location for database from "$oldFilePath" to "$sqlFilePath"',
+      'Legacy database target exists, drop leftover "$oldFilePath" without copying',
     );
-    await maybeOldFile.copy(sqlFilePath);
+    try {
+      await maybeOldFile.delete();
+    } catch (e, s) {
+      Logs().w('Unable to delete leftover legacy database', e, s);
+    }
+    return;
+  }
+
+  Logs().i(
+    'Migrate legacy location for database from "$oldFilePath" to "$sqlFilePath"',
+  );
+  await maybeOldFile.copy(sqlFilePath);
+  try {
     await maybeOldFile.delete();
+  } catch (e, s) {
+    Logs().w('Unable to delete migrated legacy database', e, s);
   }
 }

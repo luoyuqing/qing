@@ -64,6 +64,8 @@ enum AppSettings<T> {
   // 默认值 = 晴空蓝 #5B87C4（用户指定），与 qing_chat_theme.dart 的
   // QingChatTheme.defaultAccent 必须一致。
   chatAccentInt<int>('chat.fluffy.chat_accent', 0xFF5B87C4),
+  // 清助理 v1.9.0 · 上次启动各阶段耗时（JSON），用于设置页展示与排查
+  qingBootTimings<String>('chat.fluffy.qing_boot_timings', ''),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
   enableMatrixNativeOIDC<bool>('chat.fluffy.enable_matrix_native_oidc', true),

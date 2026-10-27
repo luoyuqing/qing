@@ -15,6 +15,7 @@ import android.provider.CalendarContract
 import android.provider.MediaStore
 import android.provider.ContactsContract
 import android.provider.Settings
+import android.provider.Telephony
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
@@ -70,6 +71,11 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
                 result.success(true)
             }
             "requestCalendarContacts" -> requestCalendarContacts(result)
+            "requestSms" -> requestSms(result)
+            "sms" -> result.success(readSms(
+                call.argument<Int>("limit") ?: 50,
+                call.argument<String>("query") ?: "",
+            ))
             "requestLocation" -> requestPermission(
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), result)
             "requestFiles" -> requestFiles(result)
@@ -116,6 +122,8 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         }
         val calendar = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         val contacts = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        // 清助理 v1.9.0：短信只读（READ_SMS），不申请 SEND_SMS / RECEIVE_SMS
+        val sms = hasSmsAccess(c)
         val usage = hasUsageAccess(c)
         val location = c != null && (ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
@@ -124,6 +132,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             "notification" to notificationEnabled,
             "calendar" to calendar,
             "contacts" to contacts,
+            "sms" to sms,
             "usage" to usage,
             "location" to location,
             "files" to files,
@@ -131,6 +140,11 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             "android" to Build.VERSION.RELEASE,
             "model" to "${Build.MANUFACTURER} ${Build.MODEL}",
         )
+    }
+
+    private fun hasSmsAccess(c: Context?): Boolean {
+        if (c == null) return false
+        return ContextCompat.checkSelfPermission(c, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun hasUsageAccess(c: Context?): Boolean {
@@ -216,6 +230,11 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         }
         pendingPermissionResult = result
         ActivityCompat.requestPermissions(activity, missing.toTypedArray(), REQ_PERMS)
+    }
+
+    /** 清助理 v1.9.0：短信只读授权（只要 READ_SMS） */
+    private fun requestSms(result: MethodChannel.Result) {
+        requestPermission(arrayOf(Manifest.permission.READ_SMS), result)
     }
 
     private fun requestCalendarContacts(result: MethodChannel.Result) {
@@ -335,6 +354,71 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             }
         }
         return grouped.values.toList()
+    }
+
+    // ---------- 短信（只读：收件箱 + 已发送） ----------
+    /**
+     * 读取手机短信。**只读**，不发送、不拦截、不写回。
+     *
+     * 数据源：[Telephony.Sms.CONTENT_URI]（content://sms），按时间倒序。
+     * 只取 MESSAGE_TYPE_INBOX(1) 与 MESSAGE_TYPE_SENT(2)，跳过草稿/发件箱/失败记录。
+     */
+    private fun readSms(limit: Int, query: String): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        if (!hasSmsAccess(c)) return emptyList()
+
+        val projection = arrayOf(
+            Telephony.Sms._ID,
+            Telephony.Sms.ADDRESS,
+            Telephony.Sms.PERSON,
+            Telephony.Sms.DATE,
+            Telephony.Sms.BODY,
+            Telephony.Sms.READ,
+            Telephony.Sms.TYPE,
+        )
+
+        val inbox = Telephony.Sms.MESSAGE_TYPE_INBOX.toString()
+        val sent = Telephony.Sms.MESSAGE_TYPE_SENT.toString()
+
+        val selection = buildString {
+            append("${Telephony.Sms.TYPE} IN (?, ?)")
+            if (query.isNotBlank()) {
+                append(" AND (${Telephony.Sms.BODY} LIKE ? OR ${Telephony.Sms.ADDRESS} LIKE ?)")
+            }
+        }
+        val args = if (query.isBlank()) {
+            arrayOf(inbox, sent)
+        } else {
+            arrayOf(inbox, sent, "%$query%", "%$query%")
+        }
+
+        val out = ArrayList<Map<String, Any?>>()
+        runCatching {
+            c.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                projection,
+                selection,
+                args,
+                "${Telephony.Sms.DATE} DESC",
+            )?.use { cur ->
+                while (cur.moveToNext() && out.size < limit) {
+                    val type = cur.getInt(6)
+                    out.add(
+                        mapOf(
+                            "id" to cur.getLong(0).toString(),
+                            "address" to cur.getString(1),
+                            "person" to cur.getString(2),
+                            "date" to cur.getLong(3),
+                            "body" to cur.getString(4),
+                            "read" to (cur.getInt(5) == 1),
+                            "type" to type,
+                            "direction" to if (type == Telephony.Sms.MESSAGE_TYPE_INBOX) "in" else "out",
+                        ),
+                    )
+                }
+            }
+        }
+        return out
     }
 
     // ---------- 定位（仅最后一次已知位置，不持续追踪） ----------

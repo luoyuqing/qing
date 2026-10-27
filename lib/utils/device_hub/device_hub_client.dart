@@ -232,6 +232,12 @@ class DeviceHubClient {
         'notifications', notifications.map((e) => e.toJson()).toList());
     report.add('通知 ${n1['stored'] ?? 0} 条');
 
+    // 清助理 v1.9.0：短信（只读）。未授权时原生侧返回空列表，这里自然跳过。
+    final smsList = await DeviceDataBridge.sms(limit: 200);
+    final nSms =
+        await _ingest('sms', smsList.map((e) => e.toJson()).toList());
+    report.add('短信 ${nSms['stored'] ?? 0} 条');
+
     final events = await DeviceDataBridge.calendar(
       fromMs: now.subtract(const Duration(days: 1)).millisecondsSinceEpoch,
       toMs: now.add(const Duration(days: 30)).millisecondsSinceEpoch,

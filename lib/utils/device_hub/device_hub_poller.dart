@@ -68,6 +68,18 @@ class DeviceHubPoller {
           );
           await DeviceHubClient.respondDevice(id, ok: true, data: {'items': items});
           break;
+        case 'sms':
+          // 清助理 v1.9.0：短信现场读取（只读）
+          final items = await DeviceDataBridge.sms(
+            limit: (params['limit'] as num?)?.toInt() ?? 50,
+            query: '${params['query'] ?? ''}',
+          );
+          await DeviceHubClient.respondDevice(
+            id,
+            ok: true,
+            data: {'items': items.map((e) => e.toJson()).toList()},
+          );
+          break;
         case 'usage':
           final now = DateTime.now();
           final dayStart = DateTime(now.year, now.month, now.day);

@@ -9,6 +9,9 @@ class DevicePermissionStatus {
   final bool location;
   final bool files;
   final bool allFiles;
+
+  /// 清助理 v1.9.0：短信读取（READ_SMS，只读）
+  final bool sms;
   final String model;
   final String androidVersion;
 
@@ -20,6 +23,7 @@ class DevicePermissionStatus {
     required this.location,
     required this.files,
     required this.allFiles,
+    this.sms = false,
     required this.model,
     required this.androidVersion,
   });
@@ -33,12 +37,13 @@ class DevicePermissionStatus {
         location: m['location'] == true,
         files: m['files'] == true,
         allFiles: m['all_files'] == true,
+        sms: m['sms'] == true,
         model: (m['model'] ?? '') as String,
         androidVersion: (m['android'] ?? '') as String,
       );
 
   bool get allGranted =>
-      notification && calendar && contacts && usage && location && files;
+      notification && calendar && contacts && usage && location && files && sms;
 
   int get grantedCount => [
         notification,
@@ -47,7 +52,11 @@ class DevicePermissionStatus {
         usage,
         location,
         files,
+        sms,
       ].where((e) => e).length;
+
+  /// 授权项总数（用于「已授权 x/n」展示）
+  static const int totalCount = 7;
 }
 
 class DeviceNotification {
@@ -69,10 +78,52 @@ class DeviceNotification {
       };
 }
 
+/// 一条短信（只读）
+class DeviceSms {
+  /// 系统短信库主键
+  final String id;
+
+  /// 对方号码（发送方/接收方）
+  final String address;
+
+  /// 通讯录里匹配到的人名，未匹配时为空串
+  final String person;
+
+  /// 时间戳（毫秒）
+  final int dateMs;
+
+  final String body;
+  final bool read;
+
+  /// 'in' = 收到，'out' = 已发送
+  final String direction;
+
+  const DeviceSms({
+    required this.id,
+    required this.address,
+    required this.person,
+    required this.dateMs,
+    required this.body,
+    required this.read,
+    required this.direction,
+  });
+
+  bool get isIncoming => direction == 'in';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'address': address,
+        'person': person,
+        'date': dateMs,
+        'body': body,
+        'read': read,
+        'direction': direction,
+      };
+}
+
 class DeviceDataBridge {
   static const MethodChannel _channel =
       MethodChannel('chat.qingzhuli/device_data');
-
   static Future<DevicePermissionStatus> status() async {
     final map = await _channel.invokeMethod<Map>('status');
     return DevicePermissionStatus.fromMap(map ?? const {});
@@ -104,6 +155,39 @@ class DeviceDataBridge {
   static Future<DevicePermissionStatus> requestCalendarContacts() async {
     final map = await _channel.invokeMethod<Map>('requestCalendarContacts');
     return DevicePermissionStatus.fromMap(map ?? const {});
+  }
+
+  /// 申请「读取短信」权限（READ_SMS，只读）
+  static Future<DevicePermissionStatus> requestSms() async {
+    final map = await _channel.invokeMethod<Map>('requestSms');
+    return DevicePermissionStatus.fromMap(map ?? const {});
+  }
+
+  /// 读取短信（收件箱 + 已发送，按时间倒序）
+  ///
+  /// 返回字段：id / address / person / date(毫秒) / body / read / type / direction
+  static Future<List<DeviceSms>> sms({
+    int limit = 50,
+    String query = '',
+  }) async {
+    final list = await _channel.invokeMethod<List>('sms', {
+      'limit': limit,
+      'query': query,
+    });
+    return (list ?? [])
+        .whereType<Map>()
+        .map(
+          (m) => DeviceSms(
+            id: (m['id'] ?? '') as String,
+            address: (m['address'] ?? '') as String,
+            person: (m['person'] ?? '') as String,
+            dateMs: (m['date'] ?? 0) as int,
+            body: (m['body'] ?? '') as String,
+            read: m['read'] == true,
+            direction: (m['direction'] ?? 'in') as String,
+          ),
+        )
+        .toList();
   }
 
   static Future<List<DeviceNotification>> notifications({int limit = 100}) async {
