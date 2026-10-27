@@ -8,7 +8,10 @@ import 'package:material_ui/material_ui.dart';
 /// 清助理 · 连接应用
 ///
 /// 目录来自 hub `/catalog`：官方 MCP（高德/飞书/GitHub/WPS/DeepWiki）
-/// + 内置连接器（知乎/B站/快递/QQ邮箱/钉钉，由 X2 直接实现，无需部署）。
+/// + 内置连接器（知乎/B站/快递/QQ邮箱/钉钉，由服务器直接实现，无需部署）。
+///
+/// 目录完全由服务器下发（hub 的 `/catalog`，支持热加载）：
+/// 服务器上加/减一条连接器，这里刷新就能看到，不需要更新 App。
 class ConnectorsPage extends StatefulWidget {
   const ConnectorsPage({super.key});
 
@@ -129,8 +132,8 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
               ],
               Text(
                 mode == 'remote'
-                    ? '凭据会存在你自己的 X2 上，手机不保存。'
-                    : '内置连接器由 X2 直接执行，无需部署其他服务。',
+                    ? '凭据存在你自己的服务器上，手机不保存。'
+                    : '内置连接器由服务器直接执行，无需部署其他服务。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -251,20 +254,42 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    const QingSectionTitle('官方 MCP'),
-                    Text('连接后由 X2 代理调用，凭据不上手机。',
+                    Text(
+                      '列表由服务器下发：服务器上加一条就多一个，不用更新 App。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const QingSectionTitle('可连接的 MCP'),
+                    Text('连接后由服务器代理调用，凭据只存服务器、不上手机。',
                         style: theme.textTheme.bodySmall),
                     const SizedBox(height: 10),
-                    for (final item in remote) _catalogTile(context, item),
-                    const SizedBox(height: 20),
+                    if (remote.isEmpty)
+                      _emptyHint(context, '服务器暂时没有开放 MCP 连接')
+                    else
+                      for (final item in remote) _catalogTile(context, item),
                     const SizedBox(height: 18),
                     const QingSectionTitle('内置连接器'),
-                    Text('由 X2 直接实现，零部署；AI 对话里可直接用。',
+                    Text('由服务器直接实现，零部署；AI 对话里可直接用。',
                         style: theme.textTheme.bodySmall),
                     const SizedBox(height: 10),
-                    for (final item in native) _catalogTile(context, item),
+                    if (native.isEmpty)
+                      _emptyHint(context, '服务器暂时没有开放内置连接器')
+                    else
+                      for (final item in native) _catalogTile(context, item),
                   ],
                 ),
+    );
+  }
+
+  Widget _emptyHint(BuildContext context, String text) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Center(
+        child: Text(text, style: theme.textTheme.bodySmall),
+      ),
     );
   }
 
@@ -313,6 +338,15 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall),
+                if ('${item['note'] ?? ''}'.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text('${item['note']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      )),
+                ],
               ],
             ),
           ),
