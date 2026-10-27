@@ -111,6 +111,17 @@ class _QingBootSplashState extends State<_QingBootSplash> {
     super.dispose();
   }
 
+  /// 打开启动诊断：当前阶段 + 本阶段已用时长 + 各阶段耗时。
+  /// 只由「长按头像」或「慢启动 → 诊断」触发，正常启动不会出现。
+  void _openDiag(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const _BootDiagSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 跟随系统深浅色：原生启动图夜间是黑底，这里保持一致
@@ -124,12 +135,17 @@ class _QingBootSplashState extends State<_QingBootSplash> {
         body: Stack(
           children: [
             Center(
-              child: SizedBox(
-                width: 177,
-                height: 177,
-                child: Image.asset(
-                  'assets/qing_splash.png',
-                  filterQuality: FilterQuality.medium,
+              // 长按头像 = 打开启动诊断。平时完全不可见：
+              // 正常启动（<1s）用户根本来不及长按，也不会看到任何诊断信息。
+              child: GestureDetector(
+                onLongPress: () => _openDiag(context),
+                child: SizedBox(
+                  width: 177,
+                  height: 177,
+                  child: Image.asset(
+                    'assets/qing_splash.png',
+                    filterQuality: FilterQuality.medium,
+                  ),
                 ),
               ),
             ),
@@ -138,23 +154,174 @@ class _QingBootSplashState extends State<_QingBootSplash> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 26,
-                child: Center(
-                  child: TextButton(
-                    onPressed: () => QingBoot.skip(),
-                    child: Text(
-                      '启动较慢，点这里直接进入',
+                bottom: 16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => QingBoot.skip(),
+                      child: Text(
+                        '启动较慢，点这里直接进入',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: dark ? const Color(0xFF8FB4E0) : _accent,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '·',
                       style: TextStyle(
-                        fontSize: 12.5,
                         color: dark ? const Color(0xFF8FB4E0) : _accent,
                       ),
                     ),
-                  ),
+                    TextButton(
+                      onPressed: () => _openDiag(context),
+                      child: Text(
+                        '诊断',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: dark ? const Color(0xFF8FB4E0) : _accent,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 启动诊断面板
+///
+/// 只在「长按启动页头像」或「慢启动 → 诊断」时出现，正常启动永远看不到。
+/// 展示当前阶段、本阶段已用时长、各阶段耗时（-1 超时 / -2 异常），
+/// 截图即可定位卡在哪一步。每秒自刷新，卡住的阶段能看到数字在走。
+class _BootDiagSheet extends StatefulWidget {
+  const _BootDiagSheet();
+
+  @override
+  State<_BootDiagSheet> createState() => _BootDiagSheetState();
+}
+
+class _BootDiagSheetState extends State<_BootDiagSheet> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Widget _row(String label, String value, {Color? valueColor}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12.5, color: _inkSoft)),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: valueColor ?? _ink,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<QingBootState>(
+      valueListenable: QingBoot.state,
+      builder: (context, state, _) {
+        final started = state.phaseStartedAtMs;
+        final elapsedMs = started == null
+            ? 0
+            : DateTime.now().millisecondsSinceEpoch - started;
+        final rows = state.timingsMs.entries.toList();
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDDE3EA),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    '启动诊断',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _row('当前阶段', state.phase.label),
+                  if (started != null)
+                    _row('本阶段已用', '${(elapsedMs / 1000).toStringAsFixed(1)}s'),
+                  if (state.error != null)
+                    _row('错误', '${state.error}', valueColor: const Color(0xFFB08892)),
+                  if (rows.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      '各阶段耗时',
+                      style: TextStyle(fontSize: 12.5, color: _inkSoft),
+                    ),
+                    const SizedBox(height: 4),
+                    for (final e in rows)
+                      _row(_stageLabels[e.key] ?? e.key, _fmtMs(e.value)),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => QingBoot.skip(),
+                      child: const Text('跳过等待，直接进入'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '截图这一页发给开发者，就能定位卡在哪一阶段。',
+                    style: TextStyle(fontSize: 11, color: _inkFaint),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
