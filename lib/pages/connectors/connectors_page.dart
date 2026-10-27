@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
@@ -103,6 +104,11 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
         .whereType<Map>()
         .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
         .toList();
+    final steps = (item['steps'] as List? ?? [])
+        .map((e) => '$e'.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final docUrl = '${item['doc_url'] ?? ''}'.trim();
     final controllers = <String, TextEditingController>{};
     for (final f in fields) {
       controllers['${f['key']}'] = TextEditingController();
@@ -118,6 +124,43 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
             children: [
               Text('${item['capability'] ?? ''}',
                   style: Theme.of(context).textTheme.bodySmall),
+              if (steps.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Theme(
+                  data: Theme.of(context)
+                      .copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(bottom: 6),
+                    title: const Text('怎么获取？', style: TextStyle(fontSize: 13)),
+                    children: [
+                      for (var i = 0; i < steps.length; i++)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '${i + 1}. ${steps[i]}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ),
+                      if (docUrl.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () =>
+                                UrlLauncher(context, docUrl).launchUrl(),
+                            child: const Text('查看官方文档'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               for (final f in fields) ...[
                 TextField(
@@ -125,9 +168,27 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
                   obscureText: f['secret'] == true,
                   decoration: InputDecoration(
                     labelText: '${f['label']}',
+                    hintText: '${f['placeholder'] ?? ''}',
+                    helperText: '${f['hint'] ?? ''}',
+                    helperMaxLines: 3,
                     border: const OutlineInputBorder(),
                   ),
                 ),
+                if ('${f['help_url'] ?? ''}'.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => UrlLauncher(
+                        context,
+                        '${f['help_url']}',
+                      ).launchUrl(),
+                      icon: const Icon(Icons.open_in_new, size: 14),
+                      label: const Text('去获取'),
+                    ),
+                  ),
                 const SizedBox(height: 10),
               ],
               Text(
@@ -283,6 +344,41 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
     );
   }
 
+  /// 找到某个目录项对应的已绑定 MCP 记录（按 URL 前缀匹配）
+  Map<String, dynamic>? _serverFor(Map<String, dynamic> item) {
+    final base = '${item['url'] ?? ''}'.split('?').first;
+    if (base.isEmpty) return null;
+    for (final s in _servers) {
+      if ('${s['url'] ?? ''}'.contains(base)) return s;
+    }
+    return null;
+  }
+
+  /// 测试已绑定的 MCP：重拉一次工具清单，成功即说明凭据有效
+  Future<void> _testRemote(Map<String, dynamic> item) async {
+    final server = _serverFor(item);
+    final id = server?['id'];
+    if (id is! int) {
+      _snack('还没连接，先点「连接」把 Key 填上');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final result = await DeviceHubClient.refreshMcpServer(id);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final count = result['tool_count'] ??
+          (result['tools'] as List?)?.length ??
+          0;
+      _snack('连接正常，发现 $count 个工具');
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('连接失败：$e');
+    }
+  }
+
   Widget _emptyHint(BuildContext context, String text) {
     final theme = Theme.of(context);
     return Padding(
@@ -351,17 +447,29 @@ class _ConnectorsPageState extends State<ConnectorsPage> {
             ),
           ),
           const SizedBox(width: 6),
-          pending
-              ? Text('待开放', style: theme.textTheme.bodySmall)
-              : connected && '${item['mode']}' == 'native'
-                  ? TextButton(
-                      onPressed: () => _testNative(item),
-                      child: const Text('测试'),
-                    )
-                  : TextButton(
-                      onPressed: () => _open(item),
-                      child: Text(connected ? '重配' : '连接'),
-                    ),
+          if (pending)
+            Text('待开放', style: theme.textTheme.bodySmall)
+          else if (connected)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () => '${item['mode']}' == 'native'
+                      ? _testNative(item)
+                      : _testRemote(item),
+                  child: const Text('测试'),
+                ),
+                TextButton(
+                  onPressed: () => _open(item),
+                  child: const Text('重配'),
+                ),
+              ],
+            )
+          else
+            TextButton(
+              onPressed: () => _open(item),
+              child: const Text('连接'),
+            ),
         ],
       ),
     );
