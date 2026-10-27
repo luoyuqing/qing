@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # 纯文档改动不必打一次包
+    paths-ignore:
+      - '**.md'
 
 jobs:
   build:

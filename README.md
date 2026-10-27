@@ -7,11 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # 清助理 Qing Assistant
 
-> 你自己的 AI 助理，落在手机上。聊天窗口背后是跑在**你自己家里那台 X2** 上的 Hermes Agent（办公小爱）——
-> 它能感知手机数据、连接各家 MCP 应用、每天早上和晚上自动给你写简报。
+> 一个落在手机上的私有 AI 助理客户端。聊天窗口背后，是你自己服务器上跑的 **Hermes Agent** ——
+> 它能感知手机数据、连接各家 MCP 应用、每天早晚自动写简报。
 
 清助理是基于 [FluffyChat](https://fluffychat.im) 深度改造的私有分支（包名 `chat.qingzhuli.app`，独立签名），
-聊天能力完整保留，同时把"助理"这一层做成了产品。
+聊天能力完整保留，同时把「助理」这一层做成了产品。
 
 ---
 
@@ -19,18 +19,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 | Tab | 做什么 |
 |---|---|
-| **聊天** | 和办公小爱对话。历史会话可读记录、一键切回上下文（`!resume`），新会话从右上角头像菜单进入 |
-| **简报** | 每天两份：**晨报 07:30**（日程 + 待办 + 手机通知，重点提醒今天要推进的工作）与 **晚报 20:00**（当天所有会话的结论 + 还没落地的待办 + 明天先做这件）。可点「让小爱现在写」 |
+| **聊天** | 和 Hermes Agent 对话。历史会话可读记录、一键切回上下文（`!resume`），新会话从右上角头像菜单进入 |
+| **简报** | 每天两份：**晨报 07:30**（日程 + 待办 + 手机通知，重点提醒今天要推进的事）与 **晚报 20:00**（当天各会话的结论 + 还没落地的待办 + 明天先做这件）。也可手动让助理现在写一份 |
 | **任务** | 最近会话（点开看对话记录、可切回）与定时任务（详情、编辑、启停） |
 | **记忆** | 四个选项卡：**记忆** / **画像** / **技能** / **人设**。人设就是助理的性格设定，可直接查看与编辑 |
 | **设置** | 设备数据、连接应用、数据与隐私、主题与账号 |
 
 ## 特色能力
 
-- **手机数据感知**：通知、短信验证码、日历日程、通讯录、App 使用时长、定位、文件索引。
-  手机端 **清助理** 主动上报到 hub 的 device-hub，AI 按需取数（不是无脑全量同步）。
+- **手机数据感知**：通知、短信、日历日程、通讯录、App 使用时长、定位、文件索引。
+  手机端主动上报到自建 device-hub，助理按需取数（不是无脑全量同步）。
 - **连接应用**：官方 MCP（高德 / 飞书 / GitHub / WPS / DeepWiki）+ 内置连接器（知乎热榜 / B站热门 / 快递100 / QQ邮箱 / 钉钉），
-  凭据只存在你自己的机器上，不上手机。
+  凭据只存在你自己的服务器上，不上手机。
 - **人设可编辑**：助理的性格、语气、边界写在服务端配置里，App 里随时改，改完新会话生效。
 - **简报静默**：定时生成简报**不会**往聊天窗口推送过程和结果，只有失败才提醒你。
 - **统一视觉**：白卡片 + 细描边 + 渐变 Hero + 胶囊控件，参照 today.ai 的 Today 页重做。
@@ -38,12 +38,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 ## 架构
 
 ```
-📱 清助理 App (Flutter)                 🖥️ X2（你的家用服务器）
+📱 清助理 App (Flutter)                 🖥️ 自建服务器
 ┌──────────────────────────┐            ┌────────────────────────────────────┐
-│ 聊天 / 简报 / 任务 / 记忆 │  ──Matrix──▶│ Hermes Agent（办公小爱 / 亲密小爱…） │
+│ 聊天 / 简报 / 任务 / 记忆 │  ──Matrix──▶│ Hermes Agent                       │
 │ 长轮询上报 + 按需取数      │            │  · 人设 config.yaml（App 可编辑）    │
 └──────────────────────────┘            │  · 记忆 MEMORY.md / 画像 USER.md     │
-                                        │  · 定时任务 cron（晨报/晚报…）       │
+                                        │  · 定时任务 cron（晨报 / 晚报…）      │
                                         │  · 插件 device-data（取数工具）       │
                                         └──────────────┬─────────────────────┘
                                                        │ 127.0.0.1:8787
@@ -54,24 +54,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         └────────────────────────────────────┘
 ```
 
-- **Matrix**：自建 tuwunel（`matrix.3585616.xyz`），App 与 Hermes 通过它对话。
-- **device-hub**：X2 上的单文件 Python 服务（`/data/device-hub/hub.py`），只依赖标准库，数据落 SQLite（WAL）。
-- **Hermes Agent**：办公小爱的人设、记忆、技能、定时任务都在它那边；App 只是它的客户端。
+- **Matrix**：自建 [tuwunel](https://github.com/matrix-construct/tuwunel) 服务端，App 与 Hermes Agent 通过它对话。
+- **device-hub**：服务器上的单文件 Python 服务，只依赖标准库，数据落 SQLite（WAL）。
+- **Hermes Agent**：助理的人设、记忆、技能、定时任务都在它那边；App 只是它的客户端。
 
 ## 下载
 
-安装包在 GitHub Releases（arm64）：
+安装包在 [Releases](../../releases)（arm64）：
 
-- **v1.7.1（聊天页素雅版）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.7.1/Qingzhuli-1.7.1-arm64.apk)
-- **v1.6.1（上一版稳定版，随时可回退）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.6.1-r2/Qingzhuli-1.6.1-r2-arm64.apk)
-- 历史版本见 [Releases](https://github.com/luoyuqing/qing-assistant/releases)
+- 最新版见 [Releases](../../releases/latest)
+- 需要回退时，翻 [历史版本](../../releases) 或对应的 `release/*` 分支
 
-回退点：tag `v1.6.1` / 分支 `release/v1.6.1`。
+> 服务端地址是开放配置项：新装后需要在 App 里填你自己的 Matrix 服务端与 device-hub 地址，
+> 代码里不内置任何私有域名。
 
 ### 主题色
 
-设置 → 主题 → 配色里除了跟随系统，还有 8 个低饱和淡雅色：雾紫 / 灰蓝 / 鼠尾草 / 雾青 / 藕荷 / 陶粉 / 燕麦 / 石墨。
-所有页面（含聊天页）都取同一套主题 token，换色整站跟着变。
+- **全站配色**：设置 → 主题，跟随系统或自选。
+- **聊天配色**：聊天页右上角进入，15 个低饱和淡雅色（默认晴空蓝），支持一键恢复默认；
+  只影响聊天气泡，其他页面保持你选的全站配色。
 
 ## 自己构建
 
@@ -94,24 +95,25 @@ flutter build apk --release --target-platform android-arm64
 ```
 lib/
   pages/
-    briefing/      简报（晨报/晚报、日期轨道、让小爱现在写）
+    briefing/      简报（晨报 / 晚报、日期轨道、手动生成）
     tasks/         任务（最近会话 + 定时任务）
-    memory/        记忆（记忆/画像/技能/人设）
+    memory/        记忆（记忆 / 画像 / 技能 / 人设）
     connectors/    连接应用（MCP 目录 + 内置连接器）
     settings_device_hub/  设备数据（配对、状态、权限）
-    chat/          聊天内核（气泡/输入框/顶栏已按清助理风格重做：纯色淡雅气泡、卡片式会话列表）
+    chat/          聊天内核（气泡 / 输入框 / 顶栏已按清助理风格重做：纯色淡雅气泡、卡片式会话列表）
+    boot/          启动门（首帧与初始化解耦，各阶段独立超时）
   widgets/
     qing_style.dart      统一视觉组件（卡片 / Hero / 分段 / 空状态）
     qing_bottom_nav.dart 五个 Tab 底栏
-  utils/device_hub/       App 侧 device-hub 客户端
+  utils/device_hub/      App 侧 device-hub 客户端
 ```
 
-服务端代码不在本仓库：X2 上 `/data/device-hub/`（hub.py、briefing_context.py）与
-`/data/hermes/data/`（人设、记忆、插件、cron）。
+服务端代码不在本仓库：device-hub、Hermes Agent 的人设 / 记忆 / 插件 / 定时任务，
+都部署在你自己的服务器上，仓库里只保留客户端与对接协议。
 
 ## 隐私
 
-- 手机数据只在你自己的 X2 与你自己的 Matrix 之间流转，不经第三方。
+- 手机数据只在你的手机、你的服务器、你的 Matrix 之间流转，不经第三方。
 - 通知等数据默认保留 30 天，定位 14 天，可在「设置 → 数据与隐私」调整。
 - 所有查询都有审计日志（谁在什么时候查了什么，不含结果内容）。
 

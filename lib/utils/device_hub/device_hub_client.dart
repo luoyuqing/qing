@@ -8,7 +8,7 @@ import 'device_data_bridge.dart';
 
 /// 清助理 · device-hub 客户端
 ///
-/// 只跟自己的服务器通信：内网直连 `http://192.168.0.102:8787`（可改）。
+/// 只跟自己的服务器通信：内网直连 `http://192.168.1.10:8787`（可改）。
 /// token 存 Android Keystore（flutter_secure_storage），不落日志。
 class DeviceHubClient {
   static const _tokenKey = 'qingzhuli.device_hub.token';
@@ -16,7 +16,7 @@ class DeviceHubClient {
   static const _lastSyncKey = 'qingzhuli.device_hub.last_sync';
   static const _lastSyncMsKey = 'qingzhuli.device_hub.last_sync_ms';
   static const _lastReportKey = 'qingzhuli.device_hub.last_report';
-  static const defaultUrl = 'http://192.168.0.102:8787';
+  static const defaultUrl = 'http://192.168.1.10:8787';
 
   static const _storage = FlutterSecureStorage();
 

@@ -100,7 +100,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
   Future<void> _saveUrl() async {
     final url = _urlController.text.trim();
     if (!url.startsWith('http')) {
-      _notify('地址要以 http:// 开头，例如 http://192.168.0.102:8787', error: true);
+      _notify('地址要以 http:// 开头，例如 http://192.168.1.10:8787', error: true);
       return;
     }
     await DeviceHubClient.setBaseUrl(url);
@@ -242,7 +242,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 labelText: 'device-hub 地址',
-                helperText: '内网：http://192.168.0.102:8787',
+                helperText: '内网：http://<服务器IP>:8787',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   onPressed: _busy ? null : _saveUrl,
