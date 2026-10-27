@@ -81,6 +81,18 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
             "requestFiles" -> requestFiles(result)
             "openAllFilesAccess" -> openAllFilesAccess(result)
             "notifications" -> result.success(readNotifications(call.argument<Int>("limit") ?: 50))
+            // 通知黑名单：列出已安装应用 / 读当前黑名单 / 保存黑名单
+            "installedApps" -> result.success(installedApps())
+            "notifyBlacklist" -> {
+                val c = ctx()
+                result.success(if (c == null) emptyList<String>() else NotifyBlacklist.get(c).toList())
+            }
+            "setNotifyBlacklist" -> {
+                val c = ctx()
+                val packages = call.argument<List<String>>("packages") ?: emptyList()
+                if (c != null) NotifyBlacklist.set(c, packages)
+                result.success(true)
+            }
             "calendar" -> {
                 val from = call.argument<Long>("fromMs") ?: (System.currentTimeMillis() - 86_400_000L)
                 val to = call.argument<Long>("toMs") ?: (System.currentTimeMillis() + 30L * 86_400_000L)
@@ -269,23 +281,60 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         val c = ctx() ?: return emptyList()
         val prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val raw = prefs.getString("notifications", "[]") ?: "[]"
+        // 黑名单里已有的旧记录也不返回，避免"刚屏蔽还在列表里"
+        val blocked = NotifyBlacklist.get(c)
         return runCatching {
             val arr = org.json.JSONArray(raw)
             val out = ArrayList<Map<String, Any?>>()
             var i = arr.length() - 1
             while (i >= 0 && out.size < limit) {
                 val o = arr.getJSONObject(i)
-                out.add(mapOf(
-                    "package" to o.optString("package"),
-                    "appName" to o.optString("appName"),
-                    "title" to o.optString("title"),
-                    "text" to o.optString("text"),
-                    "postedAt" to o.optLong("postedAt"),
-                ))
+                val pkg = o.optString("package")
+                if (!blocked.contains(pkg)) {
+                    out.add(mapOf(
+                        "package" to pkg,
+                        "appName" to o.optString("appName"),
+                        "title" to o.optString("title"),
+                        "text" to o.optString("text"),
+                        "postedAt" to o.optLong("postedAt"),
+                    ))
+                }
                 i--
             }
             out
         }.getOrDefault(emptyList())
+    }
+
+    /// 手机里已安装、且有启动入口的应用（排除本应用），按名称排序。
+    /// 通知缓存里出现过的应用也一并补进来：有些应用没有启动图标，
+    /// 但确实在发通知，用户同样应该能屏蔽它。
+    private fun installedApps(): List<Map<String, Any?>> {
+        val c = ctx() ?: return emptyList()
+        val pm = c.packageManager
+        val out = LinkedHashMap<String, String>()
+        runCatching {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            for (info in pm.queryIntentActivities(intent, 0)) {
+                val pkg = info.activityInfo?.packageName ?: continue
+                if (pkg == c.packageName) continue
+                if (out.containsKey(pkg)) continue
+                val label = runCatching { info.loadLabel(pm).toString() }.getOrDefault(pkg)
+                out[pkg] = label
+            }
+        }
+        runCatching {
+            val prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val arr = org.json.JSONArray(prefs.getString("notifications", "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val pkg = o.optString("package")
+                if (pkg.isEmpty() || pkg == c.packageName || out.containsKey(pkg)) continue
+                out[pkg] = o.optString("appName").ifEmpty { pkg }
+            }
+        }
+        return out.entries
+            .map { mapOf<String, Any?>("package" to it.key, "label" to it.value) }
+            .sortedBy { (it["label"] as? String)?.lowercase() ?: "" }
     }
 
     // ---------- 日历 ----------

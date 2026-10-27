@@ -28,6 +28,9 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
   String? _message;
   bool _messageIsError = false;
 
+  /// 通知黑名单（包名）。存在原生侧，Flutter 引擎没起来时监听服务也能用它过滤。
+  Set<String> _notifyBlocked = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +58,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
     final lastSync = await DeviceHubClient.lastSync();
     final lastReport = await DeviceHubClient.lastReport();
     final status = await _safeStatus();
+    final blocked = await _safeNotifyBlacklist();
     if (!mounted) return;
     setState(() {
       _urlController.text = url;
@@ -62,7 +66,44 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
       _lastSync = lastSync;
       _lastReport = lastReport;
       _status = status;
+      _notifyBlocked = blocked;
     });
+  }
+
+  Future<Set<String>> _safeNotifyBlacklist() async {
+    try {
+      return (await DeviceDataBridge.notifyBlacklist()).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> _editNotifyBlacklist() async {
+    final picked = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _NotifyBlacklistSheet(selected: _notifyBlocked),
+    );
+    if (picked == null || !mounted) return;
+    try {
+      await DeviceDataBridge.setNotifyBlacklist(picked.toList());
+      if (!mounted) return;
+      setState(() => _notifyBlocked = picked);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            picked.isEmpty
+                ? '已清空黑名单，所有通知恢复监听'
+                : '已屏蔽 ${picked.length} 个应用的通知',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存失败：$e')));
+    }
   }
 
   Future<DevicePermissionStatus?> _safeStatus() async {
@@ -298,6 +339,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             granted: status?.notification ?? false,
             onTap: () => DeviceDataBridge.openNotificationSettings(),
           ),
+          _notifyBlacklistTile(context),
           _permissionTile(
             context,
             icon: Icons.calendar_month_outlined,
@@ -461,6 +503,24 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
         onTap: onTap,
       );
 
+  /// 通知黑名单入口：只对「通知」这一项生效
+  Widget _notifyBlacklistTile(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = _notifyBlocked.length;
+    return ListTile(
+      leading: const Icon(Icons.filter_alt_outlined),
+      title: const Text('通知黑名单'),
+      subtitle: Text(
+        count == 0
+            ? '勾掉不想监听的应用，从源头过滤噪声'
+            : '已屏蔽 $count 个应用，点一下调整',
+        style: theme.textTheme.bodySmall,
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _editNotifyBlacklist,
+    );
+  }
+
   /// 启动诊断：展示上次启动各阶段耗时
   ///
   /// 真机上核对「冷启动/热启动是否达标」就看这里，不用连电脑抓日志。
@@ -513,5 +573,203 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
     if (ms == -2) return '异常';
     if (ms >= 1000) return '${(ms / 1000).toStringAsFixed(1)}s';
     return '${ms}ms';
+  }
+}
+
+/// 通知黑名单选择器
+///
+/// 列出手机里已安装的应用，勾上的应用**在通知监听服务里就被丢弃**：
+/// 不进本地缓存、也不会上报，属于源头过滤。返回勾选结果（包名集合）。
+class _NotifyBlacklistSheet extends StatefulWidget {
+  const _NotifyBlacklistSheet({required this.selected});
+
+  final Set<String> selected;
+
+  @override
+  State<_NotifyBlacklistSheet> createState() => _NotifyBlacklistSheetState();
+}
+
+class _NotifyBlacklistSheetState extends State<_NotifyBlacklistSheet> {
+  final _search = TextEditingController();
+  late Set<String> _picked = Set<String>.from(widget.selected);
+  List<Map<String, dynamic>> _apps = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final apps = await DeviceDataBridge.installedApps();
+      if (!mounted) return;
+      setState(() {
+        _apps = apps;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final q = _search.text.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? _apps
+        : _apps
+            .where((a) =>
+                '${a['label'] ?? ''}'.toLowerCase().contains(q) ||
+                '${a['package'] ?? ''}'.toLowerCase().contains(q))
+            .toList();
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.84,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('通知黑名单', style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 2),
+                        Text(
+                          '勾选的应用不进入通知缓存，也不会上报给服务器',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed:
+                        _picked.isEmpty ? null : () => setState(() => _picked = <String>{}),
+                    child: const Text('清空'),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, _picked),
+                    child: Text('完成 ${_picked.length}'),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: '搜索应用名或包名',
+                  prefixIcon: Icon(Icons.search, size: 20),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Expanded(child: _body(theme, shown)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body(ThemeData theme, List<Map<String, dynamic>> shown) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 36),
+              const SizedBox(height: 8),
+              Text('读取应用列表失败', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 4),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.tonal(onPressed: _load, child: const Text('重试')),
+            ],
+          ),
+        ),
+      );
+    }
+    if (shown.isEmpty) {
+      return Center(
+        child: Text(
+          _apps.isEmpty ? '没有读到已安装的应用' : '没有匹配的应用',
+          style: theme.textTheme.bodySmall,
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: shown.length,
+      itemBuilder: (context, i) {
+        final app = shown[i];
+        final pkg = '${app['package'] ?? ''}';
+        final label = '${app['label'] ?? pkg}';
+        final checked = _picked.contains(pkg);
+        return CheckboxListTile(
+          value: checked,
+          dense: true,
+          onChanged: (v) => setState(() {
+            if (v == true) {
+              _picked.add(pkg);
+            } else {
+              _picked.remove(pkg);
+            }
+          }),
+          secondary: CircleAvatar(
+            radius: 15,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            child: Text(
+              label.isEmpty ? '?' : label.substring(0, 1),
+              style: theme.textTheme.labelMedium,
+            ),
+          ),
+          title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            pkg,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall,
+          ),
+        );
+      },
+    );
   }
 }

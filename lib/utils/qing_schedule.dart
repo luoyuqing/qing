@@ -59,13 +59,16 @@ class QingSchedule {
     if (f == null) return raw;
 
     final minute = _int(f[0]);
-    final hour = _int(f[1]);
-    if (minute == null || hour == null) return raw;
+    if (minute == null) return raw;
 
     // 每小时：分 * * * *
+    // 注意要在解析 hour 之前判断：这里 hour 字段是 '*'，提前取 int 会失败退出。
     if (f[1] == '*' && f[2] == '*' && f[3] == '*' && f[4] == '*') {
       return '每小时第 $minute 分';
     }
+
+    final hour = _int(f[1]);
+    if (hour == null) return raw;
 
     // 每周：分 时 * * 1,3,5
     if (f[2] == '*' && f[3] == '*' && f[4] != '*') {

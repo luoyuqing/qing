@@ -24,6 +24,8 @@ class QingNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val ctx = applicationContext ?: return
         if (sbn.packageName == ctx.packageName) return
+        // 用户明确屏蔽的应用：在这里就丢掉，不入库、不上报
+        if (NotifyBlacklist.contains(ctx, sbn.packageName)) return
         val n = sbn.notification ?: return
         val extras = n.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()

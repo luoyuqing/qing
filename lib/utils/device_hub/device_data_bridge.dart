@@ -205,6 +205,26 @@ class DeviceDataBridge {
         .toList();
   }
 
+  /// 手机里已安装、且有启动入口的应用（已排除本应用），按名称排序。
+  /// 返回 [{package, label}]
+  static Future<List<Map<String, dynamic>>> installedApps() async {
+    final list = await _channel.invokeMethod<List>('installedApps') ?? const [];
+    return list
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry('$k', v)))
+        .toList();
+  }
+
+  /// 当前通知黑名单（包名）。命中的应用在通知监听服务里就被丢掉，
+  /// 既不入本地缓存也不上报，属于源头过滤。
+  static Future<List<String>> notifyBlacklist() async {
+    final list = await _channel.invokeMethod<List>('notifyBlacklist') ?? const [];
+    return list.map((e) => '$e').toList();
+  }
+
+  static Future<void> setNotifyBlacklist(List<String> packages) =>
+      _channel.invokeMethod('setNotifyBlacklist', {'packages': packages});
+
   static Future<List<Map<String, dynamic>>> calendar({
     required int fromMs,
     required int toMs,
