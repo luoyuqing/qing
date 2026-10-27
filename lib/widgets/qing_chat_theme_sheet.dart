@@ -6,6 +6,7 @@
 import 'package:fluffychat/config/qing_chat_theme.dart';
 import 'package:fluffychat/utils/color_value.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 /// 清助理 · 聊天气泡配色选择器
 ///
@@ -188,7 +189,8 @@ class _QingChatThemeSheet extends StatelessWidget {
                       padding: const EdgeInsets.all(6),
                       child: Tooltip(
                         message:
-                            '${a.name} · #${a.color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+                            // toARGB32 是 0xAARRGGBB，展示时只取后 6 位 RRGGBB
+                            '${a.name} · #${(a.color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
                           onTap: () {

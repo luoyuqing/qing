@@ -89,21 +89,28 @@ class QingChatTheme {
     return null;
   }
 
+  /// 与白色按比例调和。[pct] = 0 全白，1 = 原色
+  ///
+  /// ⚠️ Flutter 3.27+ 的 Color.from 签名：
+  ///   const Color.from({required double alpha, red, green, blue})
+  ///   四个分量都是 **double 且取值 0~1**（不是 0~255）。
+  ///   已对照 flutter 3.47.8 engine/src/flutter/lib/ui/painting.dart 核实。
   static Color _mixWhite(Color color, double pct) {
     return Color.from(
       alpha: color.a,
-      red: (color.r * 255 * pct + 255 * (1 - pct)).round(),
-      green: (color.g * 255 * pct + 255 * (1 - pct)).round(),
-      blue: (color.b * 255 * pct + 255 * (1 - pct)).round(),
+      red: color.r * pct + (1 - pct),
+      green: color.g * pct + (1 - pct),
+      blue: color.b * pct + (1 - pct),
     );
   }
 
+  /// 直接缩放（压暗用），factor < 1 变暗
   static Color _scale(Color color, double factor) {
     return Color.from(
       alpha: color.a,
-      red: (color.r * 255 * factor).round(),
-      green: (color.g * 255 * factor).round(),
-      blue: (color.b * 255 * factor).round(),
+      red: color.r * factor,
+      green: color.g * factor,
+      blue: color.b * factor,
     );
   }
 }
@@ -121,11 +128,15 @@ class QingChatAccent {
 /// 独立于 [ThemeController]（全局主色），只管聊天气泡。
 /// 通过 Provider 提供，任何页面都能读；改完立即生效并持久化。
 class QingChatThemeController extends ChangeNotifier {
+  final SharedPreferences? _prefs;
+
+  /// 无 Provider 时的降级实例（用默认色，不写存储）
+  factory QingChatThemeController.fallback() =>
+      QingChatThemeController(null);
+
   QingChatThemeController(this._prefs) {
     _load();
   }
-
-  final SharedPreferences _prefs;
 
   Color _accent = QingChatTheme.defaultAccent;
 
@@ -140,7 +151,7 @@ class QingChatThemeController extends ChangeNotifier {
       _accent.toARGB32() == QingChatTheme.defaultAccent.toARGB32();
 
   void _load() {
-    final raw = _prefs.getInt(AppSettings.chatAccentInt.key);
+    final raw = _prefs?.getInt(AppSettings.chatAccentInt.key);
     if (raw != null) {
       _accent = Color(raw);
     }
@@ -148,7 +159,7 @@ class QingChatThemeController extends ChangeNotifier {
 
   /// 设置聊天主题色
   Future<void> setAccent(Color color) async {
-    await _prefs.setInt(AppSettings.chatAccentInt.key, color.toARGB32());
+    await _prefs?.setInt(AppSettings.chatAccentInt.key, color.toARGB32());
     _accent = color;
     notifyListeners();
   }
@@ -185,6 +196,17 @@ class QingChatThemeScope extends StatelessWidget {
 
 /// 取聊天主题色控制器
 extension QingChatThemeContext on BuildContext {
-  QingChatThemeController get qingChatTheme =>
-      Provider.of<QingChatThemeController>(this, listen: false);
+  /// 取聊天主题色控制器
+  ///
+  /// ⚠️ 必须用 **watch**（listen: true）：气泡需要随主题色变化而重建，
+  ///    用 listen: false 的话切换颜色后气泡不会更新。
+  ///
+  /// Provider 不在树上时（例如深链接直接进房间）降级为默认色，不崩。
+  QingChatThemeController get qingChatTheme {
+    try {
+      return Provider.of<QingChatThemeController>(this);
+    } catch (_) {
+      return QingChatThemeController.fallback();
+    }
+  }
 }

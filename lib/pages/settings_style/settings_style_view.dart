@@ -20,6 +20,7 @@ import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
 import 'package:fluffychat/widgets/qing_chat_theme_sheet.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 import 'package:matrix/matrix.dart';
 
 import '../../config/app_config.dart';
