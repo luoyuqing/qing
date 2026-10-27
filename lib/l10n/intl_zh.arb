@@ -786,7 +786,7 @@
     "type": "String",
     "placeholders": {}
   },
-  "inviteText": "{username} 邀请你使用 Qchat。 \n1. 安装 Qchat：https://matrix.3585616.xyz \n2. 注册或登录 \n3. 打开邀请链接：\n {link}",
+  "inviteText": "{username} 邀请你使用 Qchat。 \n1. 安装 Qchat（从发布页下载安装包） \n2. 注册或登录 \n3. 打开邀请链接：\n {link}",
   "@inviteText": {
     "type": "String",
     "placeholders": {
