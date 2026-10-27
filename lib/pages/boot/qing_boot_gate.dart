@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
-import 'dart:ui' show FontFeature;
 
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/utils/qing_boot.dart';
@@ -14,9 +13,9 @@ import 'package:material_ui/material_ui.dart';
 /// 全 App 唯一的 `runApp` 入口。先渲染启动页拿到首帧，等 [QingBoot]
 /// 把重活干完再切到真正的 [FluffyChatApp]。
 ///
-/// 启动页**刻意做成静止的**：不放进度条、不放转圈，只有文字与耗时数字。
-/// 之前那版放了 LinearProgressIndicator，被反馈"多了个进度条动画，体验差"，
-/// 已去掉 —— 启动页的存在目的是"让你知道没死机"，不是"表演加载中"。
+/// 启动页**与原生启动图完全一致**（同色底 + 居中同尺寸头像），不放进度条、
+/// 不放转圈、不放任何阶段耗时数字 —— 它只负责顶住等待，不表演加载。
+/// 排障信息只出现在启动失败页。
 class QingBootGate extends StatelessWidget {
   const QingBootGate({super.key});
 
@@ -26,7 +25,7 @@ class QingBootGate extends StatelessWidget {
       valueListenable: QingBoot.state,
       builder: (context, state, _) {
         if (!state.finished) {
-          return _QingBootSplash(state: state);
+          return const _QingBootSplash();
         }
         if (state.failed) {
           return _QingBootFailed(state: state);
@@ -52,14 +51,12 @@ class QingBootGate extends StatelessWidget {
 }
 
 const _bgTop = Color(0xFFF7FAFF);
-const _bgBottom = Color(0xFFEAF1FA);
 const _ink = Color(0xFF1B2532);
 const _inkSoft = Color(0xFF6B7A8C);
 const _inkFaint = Color(0xFFA7B3C2);
 const _accent = Color(0xFF5B87C4);
 
-/// 阶段在界面上固定展示的顺序（与耗时 key 对应）
-const _stageKeys = <String>['config', 'crypto', 'database', 'rooms'];
+/// 阶段名称：**只用于启动失败页**的耗时明细，正常启动不展示任何阶段信息。
 const _stageLabels = <String, String>{
   'first_frame': '首帧',
   'config': '读取配置',
@@ -70,15 +67,6 @@ const _stageLabels = <String, String>{
   'total': '合计',
 };
 
-/// 当前阶段对应到哪个展示项（null 表示不在上面四项里）
-String? _currentStageKey(QingBootPhase phase) => switch (phase) {
-  QingBootPhase.config => 'config',
-  QingBootPhase.crypto => 'crypto',
-  QingBootPhase.database => 'database',
-  QingBootPhase.rooms => 'rooms',
-  _ => null,
-};
-
 String _fmtMs(int ms) {
   if (ms == -1) return '超时';
   if (ms == -2) return '异常';
@@ -86,258 +74,86 @@ String _fmtMs(int ms) {
   return '${ms}ms';
 }
 
-/// 启动页（静止，不依赖任何主题/存储）
+/// 启动页：与原生启动图完全一致（同色底 + 居中同尺寸品牌头像）
+///
+/// 设计约束（2026-10-27）：**不展示任何诊断信息**。
+/// 这里原本有一张「读取配置 / 加密引擎 / 本地数据库 / 会话数据」四阶段耗时
+/// 清单，属于排障界面，正常用户在启动页和主页之间会看到它一闪而过。
+/// 现在改成照抄原生启动图的构图（177dp 居中头像，与
+/// res/drawable-*/splash.png 的 177dp 一致），系统启动图交接到 Flutter 时
+/// 在视觉上是连续的，用户只会感觉「图标 → 主页」。
+/// 阶段耗时只在 [QingBootFailed] 里出现。
 class _QingBootSplash extends StatefulWidget {
-  const _QingBootSplash({required this.state});
-
-  final QingBootState state;
+  const _QingBootSplash();
 
   @override
   State<_QingBootSplash> createState() => _QingBootSplashState();
 }
 
 class _QingBootSplashState extends State<_QingBootSplash> {
-  Timer? _ticker;
+  bool _showSkip = false;
+  Timer? _skipTimer;
 
-  /// 显示「跳过等待」的门槛：超过这个时长还没进主界面，就给用户一个出口
+  /// 卡这么久还没进主界面，才给一个出口。正常启动（<1s）根本看不到。
   static const _skipAfter = Duration(seconds: 6);
 
   @override
   void initState() {
     super.initState();
-    // 每秒刷新一次：只为了让「本阶段 X.Xs」这个数字走字，
-    // 让人知道程序还活着。这不是加载动画。
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+    _skipTimer = Timer(_skipAfter, () {
+      if (mounted) setState(() => _showSkip = true);
     });
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _skipTimer?.cancel();
     super.dispose();
   }
 
-  String _elapsedText() {
-    final started = widget.state.phaseStartedAtMs;
-    if (started == null) return '';
-    final ms = DateTime.now().millisecondsSinceEpoch - started;
-    if (ms < 1000) return '';
-    return '${(ms / 1000).toStringAsFixed(1)}s';
-  }
-
-  bool get _showSkip {
-    final started = widget.state.phaseStartedAtMs;
-    if (started == null) return false;
-    return DateTime.now().millisecondsSinceEpoch - started >
-        _skipAfter.inMilliseconds;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
-    // 启动页可能在 AppSettings.init() 之前就渲染，此时不能读 store，
-    // 用与应用名一致的常量兜底，避免首帧刷一堆 "Unable to fetch" 错误日志。
-    final appName =
-        QingBoot.store == null ? '清助理' : AppSettings.applicationName.value;
-    final currentKey = _currentStageKey(state.phase);
-    final elapsed = _elapsedText();
-
+    // 跟随系统深浅色：原生启动图夜间是黑底，这里保持一致
+    final dark =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [_bgTop, _bgBottom],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const Spacer(flex: 3),
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_accent, Color(0xFF8FB4E0)],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accent.withAlpha(46),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    '清',
-                    style: TextStyle(
-                      fontSize: 36,
-                      height: 1.1,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+        backgroundColor: dark ? Colors.black : Colors.white,
+        body: Stack(
+          children: [
+            Center(
+              child: SizedBox(
+                width: 177,
+                height: 177,
+                child: Image.asset(
+                  'assets/qing_splash.png',
+                  filterQuality: FilterQuality.medium,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  appName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // 当前在做什么 + 本阶段已用多久（唯一会变的东西）
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      state.phase.label,
-                      style: const TextStyle(fontSize: 12.5, color: _inkSoft),
-                    ),
-                    if (elapsed.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        elapsed,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: _inkFaint,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const Spacer(flex: 2),
-                // 四阶段固定清单：已完成的显示耗时，当前项高亮，未开始灰显。
-                // 位置固定不跳动，卡在哪一步一眼能看出来。
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 46),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final key in _stageKeys)
-                        _StageRow(
-                          label: _stageLabels[key]!,
-                          ms: state.timingsMs[key],
-                          isCurrent: key == currentKey,
-                        ),
-                    ],
-                  ),
-                ),
-                const Spacer(flex: 3),
-                // 超过 6 秒仍未完成 → 给出口，不等超时
-                if (_showSkip)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: TextButton(
-                      onPressed: () => QingBoot.skip(),
-                      child: const Text(
-                        '启动较慢，点这里直接进入',
-                        style: TextStyle(fontSize: 12.5, color: _accent),
-                      ),
-                    ),
-                  ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    '数据只存在你自己的设备与服务器上',
-                    style: TextStyle(fontSize: 11, color: _inkFaint),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 一行阶段状态：✓ 已完成 / · 进行中 / 灰 未开始
-class _StageRow extends StatelessWidget {
-  const _StageRow({
-    required this.label,
-    required this.ms,
-    required this.isCurrent,
-  });
-
-  final String label;
-
-  /// null = 未开始；-1 = 超时；-2 = 异常；其它 = 毫秒
-  final int? ms;
-  final bool isCurrent;
-
-  @override
-  Widget build(BuildContext context) {
-    final done = ms != null && ms! >= 0;
-    final failed = ms != null && ms! < 0;
-    final color = done
-        ? _inkSoft
-        : failed
-        ? const Color(0xFFB08892)
-        : isCurrent
-        ? _ink
-        : _inkFaint;
-    final marker = done
-        ? '✓'
-        : failed
-        ? '!'
-        : isCurrent
-        ? '·'
-        : ' ';
-    final trailing = done
-        ? _fmtMs(ms!)
-        : failed
-        ? _fmtMs(ms!)
-        : isCurrent
-        ? '进行中'
-        : '';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.5),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 14,
-            child: Text(
-              marker,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
               ),
             ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-              fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            trailing,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+            // 6 秒后才出现的兜底出口（静置，不是加载动画）
+            if (_showSkip)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 26,
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => QingBoot.skip(),
+                    child: Text(
+                      '启动较慢，点这里直接进入',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: dark ? const Color(0xFF8FB4E0) : _accent,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

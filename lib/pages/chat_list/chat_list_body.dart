@@ -222,17 +222,21 @@ class ChatListViewBody extends StatelessWidget {
                 ],
               ]),
             ),
-            if (client.prevBatch == null)
+            // 只有「一条房间都还没有」时才需要骨架屏。
+            // 杀进程重进时 prevBatch 一定是 null，但本地库里房间是齐的，
+            // 这时再先刷 8 行灰块（每行还带转圈）就会变成启动页与主页之间
+            // 一闪而过的过程页，所以这里以「有没有房间」为准。
+            if (client.prevBatch == null && client.rooms.isEmpty)
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => DummyChatListItem(
                     opacity: (dummyChatCount - i) / dummyChatCount,
-                    animate: true,
+                    animate: false,
                   ),
                   childCount: dummyChatCount,
                 ),
               ),
-            if (client.prevBatch != null)
+            if (client.prevBatch != null || client.rooms.isNotEmpty)
               SliverSafeArea(
                 top: false,
                 sliver: SliverList.builder(
