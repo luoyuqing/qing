@@ -6,6 +6,8 @@
 import 'dart:ui';
 
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:fluffychat/config/qing_chat_theme.dart';
+import 'package:fluffychat/config/qing_palette.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
@@ -16,7 +18,7 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
-import 'package:fluffychat/config/qing_palette.dart';
+import 'package:fluffychat/widgets/qing_chat_theme_sheet.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -71,13 +73,114 @@ class SettingsStyleView extends StatelessWidget {
               ),
             ),
             Divider(color: theme.dividerColor),
+            // 清助理 v1.8.0：聊天气泡配色（独立于下方全局配色）
             ListTile(
-              title: Text(
-                L10n.of(context).setColorTheme,
-                style: TextStyle(
-                  color: theme.colorScheme.secondary,
-                  fontWeight: FontWeight.bold,
-                ),
+              title: Row(
+                children: [
+                  Text(
+                    '聊天气泡配色',
+                    style: TextStyle(
+                      color: theme.colorScheme.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 明确标识作用范围，避免与下方全局配色混淆
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '仅聊天',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Builder(
+              builder: (context) {
+                final controller = context.watch<QingChatThemeController>();
+                return ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: QingChatTheme.ownBubble(controller.accent),
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(
+                        color: QingChatTheme.ownBubbleBorder(controller.accent),
+                      ),
+                    ),
+                  ),
+                  title: Text(controller.accentName ?? '自定义'),
+                  subtitle: const Text('只影响聊天界面，其他页面保持不变'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ★ 一键恢复默认配色
+                      if (!controller.isDefault)
+                        IconButton(
+                          tooltip: '恢复默认配色',
+                          icon: const Icon(Icons.restart_alt),
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            await controller.resetToDefault();
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('已恢复默认配色（晴空蓝）'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () => showQingChatThemeSheet(context),
+                );
+              },
+            ),
+            ListTile(
+              title: Row(
+                children: [
+                  Text(
+                    L10n.of(context).setColorTheme,
+                    style: TextStyle(
+                      color: theme.colorScheme.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 与上方「仅聊天」区分：这是全站主色
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '全站',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             DynamicColorBuilder(

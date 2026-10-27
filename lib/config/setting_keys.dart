@@ -55,7 +55,15 @@ enum AppSettings<T> {
   applicationName<String>('chat.fluffy.application_name', '清助理'),
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
   // colorSchemeSeed stored as ARGB int
+  //
+  // ⚠️ 这是**全局主色**（影响所有页面），v1.8.0 起保持 v1.7.1 原样不动。
   colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5625BA),
+  // 清助理 v1.8.0 · 聊天气泡主题色（独立于全局主色）
+  //
+  // 只影响聊天气泡底色，不影响任何其他页面。
+  // 默认值 = 晴空蓝 #5B87C4（用户指定），与 qing_chat_theme.dart 的
+  // QingChatTheme.defaultAccent 必须一致。
+  chatAccentInt<int>('chat.fluffy.chat_accent', 0xFF5B87C4),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
   enableMatrixNativeOIDC<bool>('chat.fluffy.enable_matrix_native_oidc', true),

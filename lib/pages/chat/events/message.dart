@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:fluffychat/config/qing_chat_theme.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
@@ -107,7 +108,12 @@ class Message extends StatelessWidget {
     final ownMessage = event.senderId == client.userID;
     final alignment = ownMessage ? Alignment.topRight : Alignment.topLeft;
 
-    var color = theme.colorScheme.surfaceContainerHigh;
+    // 清助理 v1.8.0：聊天气泡配色独立于全局主色。
+    // 对方气泡 = 纯白；我方气泡 = 聊天主题色兑白 30%（默认晴空蓝 → #CEDBED）。
+    // 全局主色（colorSchemeSeed）保持 v1.7.1 原样，不影响其他页面。
+    final chatTheme = context.qingChatTheme;
+    final chatAccent = chatTheme.accent;
+    var color = QingChatTheme.otherBubble;
     final displayTime =
         event.type == EventTypes.RoomCreate ||
         previousEvent == null ||
@@ -128,8 +134,9 @@ class Message extends StatelessWidget {
         previousEvent!.senderId == event.senderId &&
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
-    // 清助理：两种气泡都是浅底纯色，文字统一用 onSurface
-    final textColor = theme.colorScheme.onSurface;
+    // 清助理 v1.8.0：气泡文字固定深色（两侧共用），
+    // 保证任意聊天主题色下对比度都 ≥ 10:1。
+    final textColor = QingChatTheme.bubbleText;
 
     final linkColor = ownMessage
         ? theme.brightness == Brightness.light
@@ -166,7 +173,7 @@ class Message extends StatelessWidget {
     if (ownMessage) {
       color = displayEvent.status.isError
           ? Colors.redAccent
-          : theme.colorScheme.surfaceContainerLowest;
+          : QingChatTheme.ownBubble(chatAccent);
     }
 
     final sentReactions = <String>{};
@@ -442,14 +449,29 @@ class Message extends StatelessWidget {
                                       border: noBubble
                                           ? null
                                           : Border.all(
+                                              // 我方 = 聊天主题色 22% 淡描边
+                                              // 对方 = 固定冷灰细描边
                                               color: ownMessage
-                                                  ? theme.colorScheme.primary
-                                                      .withAlpha(115)
-                                                  : theme.colorScheme
-                                                      .outlineVariant
-                                                      .withAlpha(70),
+                                                  ? QingChatTheme
+                                                        .ownBubbleBorder(
+                                                          chatAccent,
+                                                        )
+                                                  : QingChatTheme
+                                                        .otherBubbleBorder,
                                               width: 0.5,
                                             ),
+                                      // 气泡阴影：我方明显一档，对方极淡
+                                      boxShadow: noBubble
+                                          ? null
+                                          : [
+                                              BoxShadow(
+                                                color: chatAccent.withAlpha(
+                                                  ownMessage ? 26 : 15,
+                                                ),
+                                                blurRadius: ownMessage ? 8 : 3,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
                                     ),
                                     clipBehavior: Clip.antiAlias,
                                     child: BubbleBackground(

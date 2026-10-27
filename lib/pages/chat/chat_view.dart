@@ -10,6 +10,7 @@ import 'package:fluffychat/config/themes.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat/chat_app_bar_list_tile.dart';
+import 'package:fluffychat/widgets/qing_chat_theme_sheet.dart';
 import 'package:fluffychat/pages/chat/chat_app_bar_title.dart';
 import 'package:fluffychat/pages/chat/chat_event_list.dart';
 import 'package:fluffychat/pages/chat/pinned_events.dart';
@@ -252,6 +253,8 @@ class ChatView extends StatelessWidget {
                         onPressed: controller.startOrJoinVideoCall,
                       ),
                     ChatSettingsPopupMenu(controller.room, true),
+                    // 清助理 v1.8.0：聊天气泡配色入口（只影响聊天界面）
+                    const QingChatThemeButton(iconSize: 19),
                   ],
                 ],
                 bottom: PreferredSize(
