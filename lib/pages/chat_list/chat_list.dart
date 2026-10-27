@@ -417,6 +417,7 @@ class ChatListController extends State<ChatList>
 
     scrollController.addListener(_onScroll);
     _waitForFirstSync();
+    unawaited(_hydrateDirectChatAvatars());
     if (PlatformInfos.isMobile) {
       _callEventSubscription = FlutterCallkitIncoming.onEvent.listen(
         _onCallEvent,
@@ -913,6 +914,40 @@ class ChatListController extends State<ChatList>
   }
 
   bool waitForFirstSync = false;
+
+  /// 清助理 v1.9.1：补全私聊房间的「对方」成员状态
+  ///
+  /// **现象**：冷启动后部分私聊在列表里只显示「emoji + 首字」，进一次聊天才恢复。
+  ///
+  /// **真实原因**（已核对 matrix 14.1.0 源码，并在 X2 服务端确认过 state）：
+  /// - 这些房间没有 `m.room.avatar`，头像来自 `m.room.member` 的 `avatar_url`；
+  /// - `Room.avatar` 对私聊会退回「对方用户头像」，但成员状态存在**单独的 box**
+  ///   （`_roomMembersBox`），而 `database.getRoomList()` 只加载
+  ///   `importantStateEvents` 对应的 preload box，**不加载成员状态**；
+  /// - 首次 sync 的 state delta 只带「有变化」的事件，成员没变化就不会进内存
+  ///   → 列表渲染时 `room.avatar == null` → 落到首字母占位。
+  ///
+  /// **修法**：对缺头像的私聊调 `requestParticipants()`。它会**先读本地数据库**
+  /// （`client.database.getUsers`），本地完整就不发网络请求，所以离线也有效。
+  Future<void> _hydrateDirectChatAvatars() async {
+    final client = Matrix.of(context).client;
+    final pending = client.rooms
+        .where((r) => r.directChatMatrixID != null && r.avatar == null)
+        .toList();
+    if (pending.isEmpty) return;
+    Logs().i('[chat_list] 补全 ${pending.length} 个私聊的成员状态');
+    var changed = false;
+    for (final room in pending) {
+      if (!mounted) return;
+      try {
+        await room.requestParticipants();
+        if (room.avatar != null) changed = true;
+      } catch (e, s) {
+        Logs().d('[chat_list] 补全 ${room.id} 成员失败', e, s);
+      }
+    }
+    if (changed && mounted) setState(() {});
+  }
 
   Future<void> _waitForFirstSync() async {
     final router = GoRouter.of(context);

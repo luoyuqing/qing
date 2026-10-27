@@ -38,6 +38,7 @@ class QingBootState {
     this.detail,
     this.error,
     this.timingsMs = const <String, int>{},
+    this.phaseStartedAtMs,
     this.finished = false,
   });
 
@@ -51,6 +52,9 @@ class QingBootState {
   /// 各阶段耗时（毫秒）。负数表示：-1 超时、-2 异常
   final Map<String, int> timingsMs;
 
+  /// 当前阶段的开始时间（毫秒时间戳），用于显示「本阶段已用 X 秒」
+  final int? phaseStartedAtMs;
+
   /// 是否已完成（成功或失败）
   final bool finished;
 
@@ -61,12 +65,14 @@ class QingBootState {
     String? detail,
     Object? error,
     Map<String, int>? timingsMs,
+    int? phaseStartedAtMs,
     bool? finished,
   }) => QingBootState(
     phase: phase ?? this.phase,
     detail: detail ?? this.detail,
     error: error ?? this.error,
     timingsMs: timingsMs ?? this.timingsMs,
+    phaseStartedAtMs: phaseStartedAtMs ?? this.phaseStartedAtMs,
     finished: finished ?? this.finished,
   );
 }
@@ -105,6 +111,23 @@ class QingBoot {
   static bool _vodozemacInitialized = false;
   static bool _running = false;
 
+  /// 从 main() 第一行开始计时，用于区分「引擎启动」与「我们自己的初始化」
+  static final Stopwatch _sinceMain = Stopwatch();
+
+  /// 在 main() 最开头调用
+  static void markMainEntry() {
+    if (!_sinceMain.isRunning) _sinceMain.start();
+  }
+
+  /// 首帧渲染完成后调用（runApp 之后 addPostFrameCallback）
+  static void markFirstFrame() {
+    final ms = _sinceMain.elapsedMilliseconds;
+    _timings['first_frame'] = ms;
+    Logs().i('[boot] 首帧 $ms ms');
+    // run() 可能已经先落盘过一次，这里补写，保证「启动诊断」里能看到首帧耗时
+    unawaited(_persistTimings());
+  }
+
   static ({String? pincode, bool useBiometrics}) get appLockSettings =>
       (pincode: pin, useBiometrics: useBiometrics);
 
@@ -115,7 +138,7 @@ class QingBoot {
   static const _configTimeout = Duration(seconds: 15);
   static const _cryptoTimeout = Duration(seconds: 25);
   static const _databaseTimeout = Duration(seconds: 120);
-  static const _roomsTimeout = Duration(seconds: 12);
+  static const _roomsTimeout = Duration(seconds: 8);
 
   static Map<String, int> _timings = <String, int>{};
 
@@ -195,7 +218,10 @@ class QingBoot {
       await _run('applock', _loadAppLock, const Duration(seconds: 5));
 
       total.stop();
-      _timings['total'] = total.elapsedMilliseconds;
+      // 合计 = 从 main() 入口算起（含引擎启动），更贴近"点图标到能用"的体感
+      _timings['total'] = _sinceMain.elapsedMilliseconds > 0
+          ? _sinceMain.elapsedMilliseconds
+          : total.elapsedMilliseconds;
       await _persistTimings();
 
       state.value = QingBootState(
@@ -218,6 +244,10 @@ class QingBoot {
   static Future<void> retry() async {
     _running = false;
     state.value = const QingBootState();
+    // 重试要重新计时，否则「合计」会把上一次的时间也算进去
+    _sinceMain
+      ..reset()
+      ..start();
     await run();
   }
 
@@ -251,7 +281,11 @@ class QingBoot {
   }
 
   static void _emit(QingBootPhase phase, {String? detail}) {
-    state.value = state.value.copyWith(phase: phase, detail: detail);
+    state.value = state.value.copyWith(
+      phase: phase,
+      detail: detail,
+      phaseStartedAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   static void _fail(String message) {
@@ -262,6 +296,7 @@ class QingBoot {
       timingsMs: Map<String, int>.unmodifiable(_timings),
       finished: true,
     );
+    Logs().e('[boot] 失败：$message  耗时=$_timings');
   }
 
   /// 有返回值的阶段：超时/异常返回 null

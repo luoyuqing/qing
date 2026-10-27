@@ -467,6 +467,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
   Widget _bootTimingsTile(BuildContext context) {
     final timings = QingBoot.lastTimings();
     const labels = <String, String>{
+      'first_frame': '首帧',
       'config': '配置',
       'crypto': '加密引擎',
       'database': '数据库',

@@ -45,6 +45,9 @@ bool isIntegrationTest = false;
 ///
 /// 无论哪一步慢，用户都能看见"正在做什么"，且不会无限等待。
 void main(List<String> args) => runZonedGuarded(() async {
+  // 启动计时起点：这里的耗时包含引擎初始化，是用户"点图标到看见画面"的真实时间
+  QingBoot.markMainEntry();
+
   // Forward Flutter errors to global error reporter
   FlutterError.onError = (details) => Zone.current.handleUncaughtError(
     details.exception,
@@ -119,6 +122,11 @@ void main(List<String> args) => runZonedGuarded(() async {
 
   // 前台：先出画面，再干活
   runApp(const QingBootGate());
+
+  // 首帧一出来就打点，用于区分「引擎慢」还是「初始化慢」
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => QingBoot.markFirstFrame(),
+  );
 
   // 清助理：前台启动即开始长轮询，AI 需要数据时现场读取。
   // 放在 run() 之前：它内部只依赖 SharedPreferences，不依赖 Matrix 初始化，
