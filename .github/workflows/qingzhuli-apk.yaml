@@ -80,7 +80,7 @@ jobs:
           test -f "$APK" || (echo "APK 不存在" && exit 1)
 
       - name: 上传 APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qingzhuli-signed-apks
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
