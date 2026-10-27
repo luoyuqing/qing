@@ -15,7 +15,7 @@ jobs:
       KS_PASS: ${{ secrets.KS_PASS }}
       KEY_ALIAS: yomi
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read Flutter version
         run: |
