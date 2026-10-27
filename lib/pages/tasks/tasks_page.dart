@@ -1,15 +1,20 @@
+import 'dart:convert';
+
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/qing_schedule.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 清助理 · 任务（办公小爱）
 ///
-/// 顶部两个 Tab：
-///  ① 最近会话 —— 真实聊天会话，点开可读最近的对话记录，并能一键切回对应房间
-///  ② 定时任务 —— 查看详情、改名称/计划/内容、启停
+/// 顶部三个 Tab：
+///  ① 最近会话 —— 最近 30 段真实聊天，点开可读记录、能一键切回对应房间
+///  ② 收藏 —— 星标过的会话集中放这里，不受「最近 30 条」限制（本地持久化）
+///  ③ 定时任务 —— 查看详情、改名称/计划/内容、启停
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key, this.persona = 'default'});
 
@@ -21,17 +26,31 @@ class TasksPage extends StatefulWidget {
 
 class _TasksPageState extends State<TasksPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _sessions = const [];
   List<Map<String, dynamic>> _routines = const [];
   String _tab = 'sessions';
 
+  /// 收藏：只存本地（SharedPreferences），不上传服务端。
+  /// _favOrder 决定展示顺序（最近收藏在前），_favMeta 保存快照，
+  /// 这样即使会话已经掉出「最近 30 条」，收藏里仍能看到名字并点回去。
+  static const _favKey = 'qingzhuli.fav_sessions';
+  List<String> _favOrder = const [];
+  Map<String, Map<String, dynamic>> _favMeta = const {};
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadFavorites();
+    // 左右滑动列表时，上面的分段控件要跟着走
+    _tabs.addListener(() {
+      const values = ['sessions', 'favorites', 'routines'];
+      final v = values[_tabs.index];
+      if (v != _tab) setState(() => _tab = v);
+    });
   }
 
   @override
@@ -65,6 +84,85 @@ class _TasksPageState extends State<TasksPage>
     }
   }
 
+  // ---------------- 收藏（纯本地） ----------------
+
+  Future<void> _loadFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_favKey);
+      if (raw == null || raw.isEmpty) return;
+      final list = (jsonDecode(raw) as List).whereType<Map>();
+      final order = <String>[];
+      final meta = <String, Map<String, dynamic>>{};
+      for (final e in list) {
+        final id = '${e['id'] ?? ''}';
+        if (id.isEmpty || meta.containsKey(id)) continue;
+        order.add(id);
+        meta[id] = {
+          'id': id,
+          'name': '${e['name'] ?? '会话'}',
+          'room_id': e['room_id'],
+          'last_at': e['last_at'],
+        };
+      }
+      if (!mounted) return;
+      setState(() {
+        _favOrder = order;
+        _favMeta = meta;
+      });
+    } catch (_) {
+      // 收藏是附加功能，本地数据坏了就当没有，不打断整个任务页
+    }
+  }
+
+  bool _isFavorite(Map<String, dynamic> s) =>
+      _favOrder.contains('${s['id'] ?? ''}');
+
+  Future<void> _toggleFavorite(Map<String, dynamic> s) async {
+    final id = '${s['id'] ?? ''}';
+    if (id.isEmpty) return;
+    final order = List<String>.from(_favOrder);
+    final meta = Map<String, Map<String, dynamic>>.from(_favMeta);
+    final removing = order.remove(id);
+    if (removing) {
+      meta.remove(id);
+    } else {
+      order.insert(0, id);
+      meta[id] = {
+        'id': id,
+        'name': '${s['name'] ?? '会话'}',
+        'room_id': s['room_id'],
+        'last_at': s['last_at'],
+      };
+    }
+    setState(() {
+      _favOrder = order;
+      _favMeta = meta;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _favKey,
+        jsonEncode([
+          for (final fid in order)
+            {
+              'id': fid,
+              'name': meta[fid]?['name'] ?? '会话',
+              'room_id': meta[fid]?['room_id'],
+              'last_at': meta[fid]?['last_at'],
+            },
+        ]),
+      );
+    } catch (_) {}
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(removing ? '已取消收藏' : '已收藏，在「收藏」里随时能找到'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,15 +192,20 @@ class _TasksPageState extends State<TasksPage>
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: QingSegmented(
-                        values: const ['sessions', 'routines'],
+                        values: const ['sessions', 'favorites', 'routines'],
                         labels: [
-                          '最近会话 · ${_sessions.length}',
-                          '定时任务 · ${_routines.length}',
+                          '会话 · ${_sessions.length}',
+                          '收藏 · ${_favOrder.length}',
+                          '定时 · ${_routines.length}',
                         ],
                         selected: _tab,
                         onChanged: (v) {
                           setState(() => _tab = v);
-                          _tabs.animateTo(v == 'sessions' ? 0 : 1);
+                          _tabs.animateTo(switch (v) {
+                            'favorites' => 1,
+                            'routines' => 2,
+                            _ => 0,
+                          });
                         },
                       ),
                     ),
@@ -123,6 +226,10 @@ class _TasksPageState extends State<TasksPage>
                                     itemBuilder: (context, i) =>
                                         _sessionCard(theme, _sessions[i]),
                                   ),
+                          ),
+                          RefreshIndicator(
+                            onRefresh: _load,
+                            child: _favoritesList(theme),
                           ),
                           RefreshIndicator(
                             onRefresh: _load,
@@ -160,6 +267,7 @@ class _TasksPageState extends State<TasksPage>
           : '$routines 个定时任务，其中 $enabled 个在跑',
       chips: [
         if (sessions > 0) '$sessions 段会话',
+        if (_favOrder.isNotEmpty) '${_favOrder.length} 个收藏',
         if (routines > 0) '$routines 个定时',
         if (enabled > 0) '$enabled 个运行中',
       ],
@@ -191,6 +299,84 @@ class _TasksPageState extends State<TasksPage>
           Text(text, style: theme.textTheme.bodySmall),
         ]),
       );
+
+  // ---------------- 收藏列表 ----------------
+
+  Widget _favoritesList(ThemeData theme) {
+    final rows = <({Map<String, dynamic> data, bool cached})>[];
+    for (final id in _favOrder) {
+      Map<String, dynamic>? live;
+      for (final s in _sessions) {
+        if ('${s['id']}' == id) {
+          live = s;
+          break;
+        }
+      }
+      final data = live ?? _favMeta[id];
+      if (data == null) continue;
+      rows.add((data: data, cached: live == null));
+    }
+    if (rows.isEmpty) {
+      return ListView(
+        children: [_empty(theme, '还没有收藏。点会话右侧的 ☆ 就能收藏')],
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      itemCount: rows.length,
+      itemBuilder: (context, i) => rows[i].cached
+          ? _cachedFavoriteCard(theme, rows[i].data)
+          : _sessionCard(theme, rows[i].data),
+    );
+  }
+
+  /// 已经掉出「最近 30 条」的收藏：仍然能看到名字并点回房间
+  Widget _cachedFavoriteCard(ThemeData theme, Map<String, dynamic> s) {
+    final room = s['room_id'] as String?;
+    return QingCard(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      onTap: room == null ? null : () => context.go('/rooms/$room'),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Icon(
+              Icons.bookmark_rounded,
+              size: 20,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${s['name'] ?? '已收藏的会话'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '不在最近 30 条内 · ${_formatTime(s['last_at'])}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _toggleFavorite(s),
+            tooltip: '取消收藏',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.star_rounded, color: Color(0xFFF2B01E)),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ---------------- 会话 ----------------
 
@@ -241,6 +427,18 @@ class _TasksPageState extends State<TasksPage>
                       style: theme.textTheme.bodyMedium),
                 ],
               ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _toggleFavorite(s),
+            tooltip: _isFavorite(s) ? '取消收藏' : '收藏',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              _isFavorite(s) ? Icons.star_rounded : Icons.star_border_rounded,
+              size: 21,
+              color: _isFavorite(s)
+                  ? const Color(0xFFF2B01E)
+                  : theme.colorScheme.outline,
             ),
           ),
           const Icon(Icons.chevron_right),
@@ -467,8 +665,12 @@ class _TasksPageState extends State<TasksPage>
                     style:
                         theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text('${r['schedule_expr'] ?? r['schedule'] ?? ''}',
-                    style: theme.textTheme.bodySmall),
+                Text(
+                  QingSchedule.describe(
+                    '${r['schedule_expr'] ?? r['schedule'] ?? ''}',
+                  ),
+                  style: theme.textTheme.bodySmall,
+                ),
                 if (status.isNotEmpty)
                   Text(
                     '上次 ${_statusText(status)} · ${_formatTime(r['last_run_at'])}',
@@ -562,23 +764,215 @@ class _RoutineEditorSheet extends StatefulWidget {
 class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
   late final TextEditingController _name =
       TextEditingController(text: '${widget.routine['name'] ?? ''}');
-  late final TextEditingController _schedule = TextEditingController(
-      text:
-          '${widget.routine['schedule_expr'] ?? widget.routine['schedule'] ?? ''}');
   late final TextEditingController _prompt =
       TextEditingController(text: '${widget.routine['prompt'] ?? ''}');
   late bool _enabled = widget.routine['enabled'] == true;
   bool _saving = false;
 
+  /// 执行计划拆成四种「傻瓜选项」，不再逼用户写 cron：
+  /// 每天 / 每周 / 每小时 / 自定义。前三者由界面拼 cron，自定义保留原始输入。
+  static const _modes = <String, String>{
+    'daily': '每天',
+    'weekly': '每周',
+    'hourly': '每小时',
+    'custom': '自定义',
+  };
+  String _mode = 'daily';
+  TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
+  Set<int> _weekdays = <int>{DateTime.monday};
+  int _minute = 0;
+  late final TextEditingController _custom = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initSchedule(
+      '${widget.routine['schedule_expr'] ?? widget.routine['schedule'] ?? ''}',
+    );
+  }
+
+  /// 把现有 cron 反解成对应的选项；反解不出就落到「自定义」
+  void _initSchedule(String expr) {
+    final raw = expr.trim();
+    _custom.text = raw;
+    final daily = QingSchedule.dailyTime(raw);
+    if (daily != null) {
+      _mode = 'daily';
+      _time = TimeOfDay(hour: daily.hour, minute: daily.minute);
+      return;
+    }
+    final f = raw.split(RegExp(r'\s+'));
+    if (f.length != 5) return; // every 30m / once at ... → 自定义
+
+    // 每小时：分 * * * *
+    if (f[1] == '*' && f[2] == '*' && f[3] == '*' && f[4] == '*') {
+      final m = int.tryParse(f[0]);
+      if (m != null && m >= 0 && m <= 59) {
+        _mode = 'hourly';
+        _minute = m;
+        return;
+      }
+    }
+
+    // 每周：分 时 * * 1,3
+    if (f[2] == '*' && f[3] == '*' && f[4] != '*') {
+      final m = int.tryParse(f[0]);
+      final h = int.tryParse(f[1]);
+      final days = <int>{};
+      for (final p in f[4].split(',')) {
+        final d = int.tryParse(p);
+        if (d != null && d >= 1 && d <= 7) days.add(d);
+      }
+      if (m != null && h != null && days.isNotEmpty) {
+        _mode = 'weekly';
+        _time = TimeOfDay(hour: h, minute: m);
+        _weekdays = days;
+        return;
+      }
+    }
+    _mode = 'custom';
+  }
+
+  /// 当前选项对应的 cron
+  String get _cron {
+    switch (_mode) {
+      case 'weekly':
+        return QingSchedule.weekly(_weekdays, _time.hour, _time.minute);
+      case 'hourly':
+        return QingSchedule.hourly(_minute);
+      case 'custom':
+        return _custom.text.trim();
+      default:
+        return QingSchedule.daily(_time.hour, _time.minute);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(context: context, initialTime: _time);
+    if (picked == null || !mounted) return;
+    setState(() => _time = picked);
+  }
+
+  /// 执行计划编辑器：四种选项 + 实时人话预览
+  Widget _scheduleEditor(ThemeData theme) {
+    final timeText = QingSchedule.timeText(_time.hour, _time.minute);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('执行计划', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final entry in _modes.entries)
+                ChoiceChip(
+                  label: Text(entry.value),
+                  selected: _mode == entry.key,
+                  onSelected: (_) => setState(() => _mode = entry.key),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_mode == 'weekly') ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (var d = 1; d <= 7; d++)
+                  FilterChip(
+                    label: Text(
+                      '${QingSchedule.weekdayNames[d]!.replaceFirst('周', '')}',
+                    ),
+                    selected: _weekdays.contains(d),
+                    onSelected: (on) => setState(() {
+                      final next = Set<int>.from(_weekdays);
+                      if (on) {
+                        next.add(d);
+                      } else {
+                        next.remove(d);
+                      }
+                      // 至少留一天，否则计划就空了
+                      _weekdays = next.isEmpty ? {d} : next;
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (_mode == 'hourly')
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (var m = 0; m < 60; m += 5)
+                  ChoiceChip(
+                    label: Text('${m.toString().padLeft(2, '0')} 分'),
+                    selected: _minute == m,
+                    onSelected: (_) => setState(() => _minute = m),
+                  ),
+              ],
+            )
+          else if (_mode == 'custom')
+            TextField(
+              controller: _custom,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                isDense: true,
+                labelText: 'cron 表达式',
+                helperText: '分 时 日 月 周，例如 0 10 * * *',
+                border: OutlineInputBorder(),
+              ),
+            )
+          else
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickTime,
+                  icon: const Icon(Icons.schedule, size: 18),
+                  label: Text(timeText),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  _mode == 'weekly' ? '每周这些天的 $timeText' : '每天 $timeText',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          const SizedBox(height: 10),
+          Text(
+            '→ ${QingSchedule.describe(_cron)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _name.dispose();
-    _schedule.dispose();
     _prompt.dispose();
+    _custom.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final cron = _cron;
+    if (cron.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('执行计划不能为空')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await DeviceHubClient.updateRoutine(
@@ -586,7 +980,7 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
         persona: widget.persona,
         name: _name.text.trim(),
         prompt: _prompt.text,
-        schedule: _schedule.text.trim(),
+        schedule: _cron,
         enabled: _enabled,
       );
       if (mounted) Navigator.pop(context, true);
@@ -621,14 +1015,7 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _schedule,
-              decoration: const InputDecoration(
-                labelText: '执行计划（cron）',
-                helperText: '例如 0 10 * * *（每天 10:00）；分 时 日 月 周',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            _scheduleEditor(theme),
             const SizedBox(height: 12),
             TextField(
               controller: _prompt,

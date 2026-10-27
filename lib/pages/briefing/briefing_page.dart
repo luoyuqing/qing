@@ -1,12 +1,17 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/qing_schedule.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 清助理 · 简报（仅办公小爱）
 ///
 /// 一天两份：
-///   晨报 —— 每天 07:30，手机数据为主，提醒今天要推进的事
-///   晚报 —— 每天 20:00，总结当天所有会话的结论 + 没落地的待办
+///   晨报 —— 早上（时间取「早间简报」定时任务的实际配置）
+///   晚报 —— 晚上（时间取「晚间简报」定时任务的实际配置）
+///
+/// 页头那行小字**不再写死时间**：每次加载都读一次 `/routines`，
+/// 找到对应的定时任务后把 cron 转成 HH:mm 显示。改了定时任务的计划，
+/// 这里跟着变；读不到就不显示时间，而不是继续骗人。
 ///
 /// 数据来自 device-hub：GET /briefing/day?date=YYYY-MM-DD
 /// 没生成时 hub 会给一份设备数据兜底（generated=true）。
@@ -33,6 +38,9 @@ class _BriefingPageState extends State<BriefingPage> {
   List<Map<String, dynamic>> _todos = const [];
   Map<String, dynamic> _stats = const {};
 
+  /// 定时任务列表：只用来把「晨报/晚报几点」显示成真实配置
+  List<Map<String, dynamic>> _routines = const [];
+
   @override
   void initState() {
     super.initState();
@@ -54,13 +62,23 @@ class _BriefingPageState extends State<BriefingPage> {
       });
     }
     try {
-      final data = await DeviceHubClient.briefingDay(date: _date);
+      // 简报正文与定时任务并行取；定时任务只用于显示「几点生成」，
+      // 读失败不能拖垮正文，所以单独兜底成空列表。
+      final results = await Future.wait<dynamic>([
+        DeviceHubClient.briefingDay(date: _date),
+        DeviceHubClient.routines(persona: widget.persona).catchError(
+          (Object _) => <Map<String, dynamic>>[],
+        ),
+      ]);
       if (!mounted) return;
+      final data = results[0] as Map<String, dynamic>;
+      final routines = results[1] as List<Map<String, dynamic>>;
       final items = (data['items'] as List? ?? [])
           .whereType<Map>()
           .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
           .toList();
       setState(() {
+        _routines = routines;
         _items = items;
         _pending = (data['pending'] as List? ?? []).map((e) => '$e').toList();
         _todos = (data['todos'] as List? ?? [])
@@ -204,6 +222,46 @@ class _BriefingPageState extends State<BriefingPage> {
     );
   }
 
+  // ---------------- 定时任务 → 展示文案 ----------------
+
+  /// 判断某个定时任务是晨报还是晚报：先看名字，名字认不出再看提示词。
+  String _routineKind(Map<String, dynamic> r) {
+    final name = '${r['name'] ?? ''}';
+    if (name.contains('晚报') || name.contains('晚间')) return 'evening';
+    if (name.contains('晨报') || name.contains('早间') || name.contains('早报')) {
+      return 'morning';
+    }
+    final prompt = '${r['prompt'] ?? ''}';
+    if (prompt.contains('晚报') || prompt.contains('晚间简报')) return 'evening';
+    if (prompt.contains('晨报') || prompt.contains('早间简报')) return 'morning';
+    return '';
+  }
+
+  /// 某份简报的生成时间（HH:mm）。
+  /// 没有对应定时任务、或计划不是「每天固定时刻」，一律返回 null（不猜）。
+  String? _briefingTime(String kind) {
+    for (final r in _routines) {
+      if (_routineKind(r) != kind) continue;
+      final expr = '${r['schedule_expr'] ?? r['schedule'] ?? ''}';
+      final t = QingSchedule.dailyTime(expr);
+      if (t == null) continue;
+      return QingSchedule.timeText(t.hour, t.minute);
+    }
+    return null;
+  }
+
+  /// 页头那行小字：时间全部来自定时任务的实际配置
+  String get _scheduleLabel {
+    final morning = _briefingTime('morning');
+    final evening = _briefingTime('evening');
+    if (morning != null && evening != null) {
+      return '办公小爱 · 每天 $morning 晨报 / $evening 晚报';
+    }
+    if (morning != null) return '办公小爱 · 每天 $morning 晨报';
+    if (evening != null) return '办公小爱 · 每天 $evening 晚报';
+    return '办公小爱 · 晨报与晚报按定时任务生成';
+  }
+
   // ---------------- 顶部 ----------------
 
   Widget _topBar(ThemeData theme) {
@@ -225,7 +283,7 @@ class _BriefingPageState extends State<BriefingPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '办公小爱 · 每天 7:30 晨报 / 20:00 晚报',
+                  _scheduleLabel,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(180),
                     fontSize: 11.5,
@@ -578,12 +636,14 @@ class _BriefingPageState extends State<BriefingPage> {
               ? Icons.nightlight_round
               : Icons.wb_sunny_outlined,
           title: pending
-              ? '${_kindLabels[_kind]}会在${_kind == 'evening' ? ' 20:00 ' : ' 7:30 '}自动生成'
+              ? (_briefingTime(_kind) == null
+                  ? '${_kindLabels[_kind]}会按定时任务自动生成'
+                  : '${_kindLabels[_kind]}会在 ${_briefingTime(_kind)} 自动生成')
               : '这天没有${_kindLabels[_kind]}',
           subtitle: pending
               ? (_kind == 'evening'
-                  ? '小爱会在晚上 8 点把今天所有会话的结论、还没落地的待办整理成一页。'
-                  : '小爱会在早上 7 点半结合日程、待办和手机通知，告诉你今天先做什么。')
+                  ? '小爱会在晚上把今天所有会话的结论、还没落地的待办整理成一页。'
+                  : '小爱会在早上结合日程、待办和手机通知，告诉你今天先做什么。')
               : '换个日期看看，或者让小爱现在补一份。',
           action: _isToday
               ? FilledButton.icon(
