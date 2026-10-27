@@ -16,6 +16,7 @@ import 'package:fluffychat/widgets/avatar.dart';
 import 'package:fluffychat/widgets/layouts/max_width_body.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/mxc_image.dart';
+import 'package:fluffychat/config/qing_palette.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:matrix/matrix.dart';
 
@@ -85,25 +86,30 @@ class SettingsStyleView extends StatelessWidget {
                     Theme.of(context).brightness == Brightness.light
                     ? light?.primary
                     : dark?.primary;
-                final colors = [null, AppConfig.chatColor, ...Colors.primaries];
-                if (systemColor == null) {
-                  colors.remove(null);
-                }
+                // 清助理：淡雅低饱和色板（替代 Flutter 自带的高饱和 Colors.primaries）
+                final options = <_ColorOption>[
+                  if (systemColor != null)
+                    _ColorOption(null, L10n.of(context).systemTheme),
+                  _ColorOption(AppConfig.chatColor, '默认'),
+                  for (final accent in qingAccents)
+                    _ColorOption(accent.color, accent.name),
+                ];
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 64,
                   ),
-                  itemCount: colors.length,
+                  itemCount: options.length,
                   itemBuilder: (context, i) {
-                    final color = colors[i];
+                    final option = options[i];
+                    final color = option.color;
                     return Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Tooltip(
                         message: color == null
-                            ? L10n.of(context).systemTheme
-                            : '#${color.hexValue.toRadixString(16).toUpperCase()}',
+                            ? option.label
+                            : '${option.label} · #${color.hexValue.toRadixString(16).toUpperCase()}',
                         child: InkWell(
                           borderRadius: BorderRadius.circular(colorPickerSize),
                           onTap: () => controller.setChatColor(color),
@@ -346,4 +352,12 @@ class SettingsStyleView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 配色选项：颜色 + 中文名
+class _ColorOption {
+  const _ColorOption(this.color, this.label);
+
+  final Color? color;
+  final String label;
 }

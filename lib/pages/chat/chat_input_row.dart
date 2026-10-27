@@ -297,18 +297,37 @@ class ChatInputRow extends StatelessWidget {
                         focusNode: controller.inputFocus,
                         controller: controller.sendController,
                         decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.only(
-                            left: 6.0,
-                            right: 6.0,
-                            bottom: 6.0,
-                            top: 3.0,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14.0,
+                            vertical: 10.0,
                           ),
                           counter: const SizedBox.shrink(),
                           hintText: '发消息...',
                           hintMaxLines: 1,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          filled: false,
+                          // 清助理：胶囊输入框，白底 + 细描边
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerLowest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.outlineVariant
+                                  .withAlpha(90),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.outlineVariant
+                                  .withAlpha(90),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide(
+                              color:
+                                  theme.colorScheme.primary.withAlpha(140),
+                            ),
+                          ),
                         ),
                         onChanged: controller.onInputBarChanged,
                         suggestionEmojis:

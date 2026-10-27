@@ -128,9 +128,8 @@ class Message extends StatelessWidget {
         previousEvent!.senderId == event.senderId &&
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
-    final textColor = ownMessage
-        ? theme.onBubbleColor
-        : theme.colorScheme.onSurface;
+    // 清助理：两种气泡都是浅底纯色，文字统一用 onSurface
+    final textColor = theme.colorScheme.onSurface;
 
     final linkColor = ownMessage
         ? theme.brightness == Brightness.light
@@ -143,7 +142,8 @@ class Message extends StatelessWidget {
         : MainAxisAlignment.start;
 
     final displayEvent = event.getDisplayEvent(timeline);
-    const hardCorner = Radius.circular(3);
+    // 清助理：纯色气泡，圆角柔和（尾巴角 7，不扎眼）
+    const hardCorner = Radius.circular(7);
     const roundedCorner = Radius.circular(AppConfig.borderRadius);
     final borderRadius = BorderRadius.only(
       topLeft: !ownMessage ? hardCorner : roundedCorner,
@@ -166,7 +166,7 @@ class Message extends StatelessWidget {
     if (ownMessage) {
       color = displayEvent.status.isError
           ? Colors.redAccent
-          : theme.bubbleColor;
+          : theme.colorScheme.surfaceContainerLowest;
     }
 
     final sentReactions = <String>{};
@@ -439,14 +439,23 @@ class Message extends StatelessWidget {
                                           ? Colors.transparent
                                           : color,
                                       borderRadius: borderRadius,
+                                      border: noBubble
+                                          ? null
+                                          : Border.all(
+                                              color: ownMessage
+                                                  ? theme.colorScheme.primary
+                                                      .withAlpha(115)
+                                                  : theme.colorScheme
+                                                      .outlineVariant
+                                                      .withAlpha(70),
+                                              width: 0.5,
+                                            ),
                                     ),
                                     clipBehavior: Clip.antiAlias,
                                     child: BubbleBackground(
                                       colors: colors,
-                                      ignore:
-                                          noBubble ||
-                                          !ownMessage ||
-                                          MediaQuery.highContrastOf(context),
+                                      // 清助理：纯色气泡，不叠任何渐变
+                                      ignore: true,
                                       scrollController: scrollController,
                                       child: Container(
                                         decoration: BoxDecoration(

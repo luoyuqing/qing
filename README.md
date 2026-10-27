@@ -62,11 +62,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 安装包在 GitHub Releases（arm64）：
 
-- **v1.6.1（当前稳定版）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.6.1/Qingzhuli-1.6.1-arm64.apk)
-  （v1.7.0 的聊天页改版效果不理想，已回退；重发版见 Releases 的 `v1.6.1-r2`）
+- **v1.7.1（聊天页素雅版）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.7.1/Qingzhuli-1.7.1-arm64.apk)
+- **v1.6.1（上一版稳定版，随时可回退）** → [下载](https://github.com/luoyuqing/qing-assistant/releases/download/v1.6.1-r2/Qingzhuli-1.6.1-r2-arm64.apk)
 - 历史版本见 [Releases](https://github.com/luoyuqing/qing-assistant/releases)
 
 回退点：tag `v1.6.1` / 分支 `release/v1.6.1`。
+
+### 主题色
+
+设置 → 主题 → 配色里除了跟随系统，还有 8 个低饱和淡雅色：雾紫 / 灰蓝 / 鼠尾草 / 雾青 / 藕荷 / 陶粉 / 燕麦 / 石墨。
+所有页面（含聊天页）都取同一套主题 token，换色整站跟着变。
 
 ## 自己构建
 
@@ -94,7 +99,7 @@ lib/
     memory/        记忆（记忆/画像/技能/人设）
     connectors/    连接应用（MCP 目录 + 内置连接器）
     settings_device_hub/  设备数据（配对、状态、权限）
-    chat/          FluffyChat 原生聊天内核（保留上游样式，未做改动）
+    chat/          聊天内核（气泡/输入框/顶栏已按清助理风格重做：纯色淡雅气泡、卡片式会话列表）
   widgets/
     qing_style.dart      统一视觉组件（卡片 / Hero / 分段 / 空状态）
     qing_bottom_nav.dart 五个 Tab 底栏

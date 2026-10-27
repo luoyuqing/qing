@@ -67,17 +67,24 @@ class ChatListItem extends StatelessWidget {
     final space = this.space;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      // 清助理：会话改成卡片式（白底 + 细描边 + 22 圆角）
+      padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
       child: Material(
-        borderRadius: BorderRadius.circular(AppConfig.borderRadius),
-        clipBehavior: Clip.hardEdge,
-        color: backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(70),
+            width: 0.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        color: backgroundColor ?? theme.colorScheme.surfaceContainerLowest,
         child: FutureBuilder(
           future: room.name.isEmpty ? room.loadHeroUsers() : null,
           builder: (context, _) => HoverBuilder(
             builder: (context, listTileHovered) => ListTile(
-              minVerticalPadding: 16,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              minVerticalPadding: 14,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               onLongPress: () => onLongPress?.call(context),
               leading: HoverBuilder(
                 builder: (context, hovered) => AnimatedScale(
