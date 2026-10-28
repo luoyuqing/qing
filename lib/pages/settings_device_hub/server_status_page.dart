@@ -4,6 +4,16 @@ import 'dart:math' as math;
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:flutter/material.dart';
 
+/// 健康度三档色（好 / 偏高 / 超了）
+///
+/// 为什么这几个不跟主色联动：它们表达的是**客观状态**而不是品牌感，
+/// 跟着设置里的主色走的话，「红了」这件事就读不出来了。
+/// 取值刻意压低饱和度，和项目里既有的「已授权」勾（#2E7D52）同一族，
+/// 面积都很小（6px 圆点、5px 进度条、一行标签字），不抢主色的戏。
+const Color _okColor = Color(0xFF4E8A67);
+const Color _warnColor = Color(0xFFB5822C);
+const Color _badColor = Color(0xFFC05552);
+
 /// 清助理 · X2 服务器状态页
 ///
 /// 数据全部来自 device-hub 的 /server/status（服务端直读 /proc 与 cgroup v2），
@@ -513,13 +523,8 @@ class _ServerStatusPageState extends State<ServerStatusPage>
     if (services.isEmpty || totalMb <= 0) {
       return _bar(theme, 0, theme.colorScheme.outlineVariant);
     }
-    final colors = [
-      theme.colorScheme.primary,
-      const Color(0xFF7F77DD),
-      const Color(0xFF1D9E75),
-      const Color(0xFFEF9F27),
-      const Color(0xFF888780),
-    ];
+    // 只用主色一个色相，靠深浅分段：多色分开的话这块会是整个页面最花的一处
+    final base = theme.colorScheme.primary;
     final segments = <Widget>[];
     for (var i = 0; i < services.length; i++) {
       final mb = _asNum((services[i] as Map)['mem_mb']);
@@ -527,8 +532,7 @@ class _ServerStatusPageState extends State<ServerStatusPage>
       segments.add(Expanded(
         flex: flex,
         child: Container(
-          color: colors[math.min(i, colors.length - 1)].withValues(
-              alpha: i < 4 ? 1.0 : 0.45),
+          color: base.withValues(alpha: (1.0 - i * 0.13).clamp(0.34, 1.0)),
         ),
       ));
     }
@@ -587,8 +591,7 @@ class _ServerStatusPageState extends State<ServerStatusPage>
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(
               children: [
-                _dot(active ? const Color(0xFF1D9E75) : const Color(0xFFE24B4A),
-                    size: 6),
+                _dot(active ? _okColor : _badColor, size: 6),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -1015,13 +1018,13 @@ class _ServerTrendPageState extends State<ServerTrendPage> {
       const SizedBox(height: 10),
       _chartCard(theme, '内存', pick('mem'),
           stats: stats['mem'] as Map?,
-          color: const Color(0xFF1D9E75),
+          color: theme.colorScheme.primary,
           unit: ' MB',
           formatter: (v) => '${(v / 1024).toStringAsFixed(1)} GB'),
       const SizedBox(height: 10),
       _chartCard(theme, '温度', pick('temp'),
           stats: stats['temp'] as Map?,
-          color: const Color(0xFFBA7517),
+          color: theme.colorScheme.primary,
           formatter: (v) => '${v.toStringAsFixed(0)}°C'),
       const SizedBox(height: 14),
       Text(
@@ -1173,7 +1176,7 @@ class _LineChartPainter extends CustomPainter {
     fill.close();
 
     canvas.drawPath(
-        fill, Paint()..color = color.withValues(alpha: 0.10));
+        fill, Paint()..color = color.withValues(alpha: 0.07));
     canvas.drawPath(
       line,
       Paint()
@@ -1218,18 +1221,18 @@ _Level _overallLevel(Map<String, dynamic> data) {
           .reduce((a, b) => a > b ? a : b);
   final worst = [cpuPct, memPct, worstDisk].reduce((a, b) => a > b ? a : b);
   if (worst >= 90 || temp >= 80) {
-    return const _Level('压力偏高', Color(0xFFE24B4A));
+    return const _Level('压力偏高', _badColor);
   }
   if (worst >= 70 || temp >= 70) {
-    return const _Level('有点忙', Color(0xFFBA7517));
+    return const _Level('有点忙', _warnColor);
   }
-  return const _Level('运行正常', Color(0xFF1D9E75));
+  return const _Level('运行正常', _okColor);
 }
 
 Color _levelColor(double pct) {
-  if (pct >= 90) return const Color(0xFFE24B4A);
-  if (pct >= 70) return const Color(0xFFBA7517);
-  return const Color(0xFF1D9E75);
+  if (pct >= 90) return _badColor;
+  if (pct >= 70) return _warnColor;
+  return _okColor;
 }
 
 Widget _dot(Color color, {double size = 6}) => Container(
