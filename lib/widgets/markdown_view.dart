@@ -431,7 +431,7 @@ class MdInline {
   static bool _isWord(int c) =>
       (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57);
 
-  static InlineSpan span(
+  static TextSpan span(
     String src,
     TextStyle base, {
     TextStyle? codeStyle,
@@ -502,8 +502,8 @@ class MdInline {
           flush();
           final alt = (m.group(1) ?? '').trim();
           children.add(
-            _link(alt.isEmpty ? '图片' : alt, m.group(2) ?? '', base, linkStyle,
-                onTapLink),
+            _linkSpan(alt.isEmpty ? '图片' : alt, m.group(2) ?? '', base,
+                linkStyle, onTapLink),
           );
           i = m.end;
           continue;
@@ -516,7 +516,7 @@ class MdInline {
           flush();
           final label = (m.group(1) ?? '').trim();
           children.add(
-            _link(
+            _linkSpan(
               label.isEmpty ? (m.group(2) ?? '') : label,
               m.group(2) ?? '',
               base,
@@ -578,7 +578,7 @@ class MdInline {
         if (m != null) {
           flush();
           final url = m.group(0)!;
-          children.add(_link(url, url, base, linkStyle, onTapLink));
+          children.add(_linkSpan(url, url, base, linkStyle, onTapLink));
           i = m.end;
           continue;
         }
@@ -592,7 +592,7 @@ class MdInline {
     return TextSpan(style: base, children: children);
   }
 
-  static InlineSpan _link(
+  static InlineSpan _linkSpan(
     String text,
     String url,
     TextStyle base,
