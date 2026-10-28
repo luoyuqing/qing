@@ -14,6 +14,43 @@ const Color _okColor = Color(0xFF4E8A67);
 const Color _warnColor = Color(0xFFB5822C);
 const Color _badColor = Color(0xFFC05552);
 
+/// v1.10.3 · 本页固定配色：白底 + 天空蓝
+///
+/// 用户明确要求「不想看见一点儿紫色」。而主题 seed 可被用户在设置里选成
+/// 任意颜色，只要这页还从 Theme 取品牌色就永远可能被染紫——所以整页
+/// （含趋势页）包一层固定 colorScheme：品牌色一律天空蓝，中性色自定灰阶，
+/// 不再读全局值。深色模式给一套同色相的暗色版，避免夜间刺眼。
+ThemeData _fixedServerTheme(BuildContext context) {
+  final light = Theme.of(context).brightness == Brightness.light;
+  const sky = Color(0xFF2196F3); // 天空蓝主色（浅色模式）
+  const skyBright = Color(0xFF64B5F6); // 同色相提亮（深色模式）
+  const skyDeep = Color(0xFF1565C0); // 浅蓝底上的文字/强调
+  final base = Theme.of(context);
+  return base.copyWith(
+    scaffoldBackgroundColor: light ? Colors.white : const Color(0xFF121417),
+    colorScheme: base.colorScheme.copyWith(
+      primary: light ? sky : skyBright,
+      onPrimary: light ? Colors.white : const Color(0xFF0B2540),
+      primaryContainer: light ? const Color(0xFFE3F0FB) : const Color(0xFF17324F),
+      onPrimaryContainer: light ? skyDeep : const Color(0xFFB5D4F4),
+      secondary: light ? sky : skyBright,
+      secondaryContainer: light ? const Color(0xFFE3F0FB) : const Color(0xFF17324F),
+      onSecondaryContainer: light ? skyDeep : const Color(0xFFB5D4F4),
+      tertiary: light ? sky : skyBright,
+      surface: light ? Colors.white : const Color(0xFF121417),
+      onSurface: light ? const Color(0xFF1B1F24) : const Color(0xFFE8EAED),
+      onSurfaceVariant: light ? const Color(0xFF697079) : const Color(0xFF9AA3AD),
+      outlineVariant: light ? const Color(0xFFE3E7EC) : const Color(0xFF2A2F36),
+      surfaceContainerLowest: light ? Colors.white : const Color(0xFF0E1013),
+      surfaceContainerLow: light ? const Color(0xFFF7F9FB) : const Color(0xFF181B1F),
+      surfaceContainer: light ? const Color(0xFFF3F5F8) : const Color(0xFF1B1F24),
+      surfaceContainerHigh: light ? const Color(0xFFF7F9FB) : const Color(0xFF20242A),
+      surfaceContainerHighest: light ? const Color(0xFFF0F3F6) : const Color(0xFF262B32),
+      surfaceTint: Colors.transparent,
+    ),
+  );
+}
+
 /// 清助理 · X2 服务器状态页
 ///
 /// 数据全部来自 device-hub 的 /server/status（服务端直读 /proc 与 cgroup v2），
@@ -133,8 +170,11 @@ class _ServerStatusPageState extends State<ServerStatusPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
+    return Theme(
+      data: _fixedServerTheme(context),
+      child: Builder(builder: (context) {
+        final theme = Theme.of(context);
+        return Scaffold(
       appBar: AppBar(
         title: const Text('服务器状态'),
         actions: [
@@ -167,6 +207,8 @@ class _ServerStatusPageState extends State<ServerStatusPage>
         onRefresh: _load,
         child: _buildBody(theme),
       ),
+        );
+      }),
     );
   }
 
@@ -907,8 +949,11 @@ class _ServerTrendPageState extends State<ServerTrendPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
+    return Theme(
+      data: _fixedServerTheme(context),
+      child: Builder(builder: (context) {
+        final theme = Theme.of(context);
+        return Scaffold(
       appBar: AppBar(
         title: const Text('趋势'),
         actions: [
@@ -937,6 +982,8 @@ class _ServerTrendPageState extends State<ServerTrendPage> {
             ..._charts(theme, _data!),
         ],
       ),
+        );
+      }),
     );
   }
 
