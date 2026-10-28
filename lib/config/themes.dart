@@ -40,23 +40,23 @@ abstract class FluffyThemes {
   static const Duration animationDuration = Duration(milliseconds: 250);
   static const Curve animationCurve = Curves.easeInOut;
 
-/// v1.10.2 · 全局主色默认值：天空蓝。
-const int kDefaultSeedInt = 0xFF2196F3;
+  /// v1.10.2 · 全局主色默认值：天空蓝。
+  static const int kDefaultSeedInt = 0xFF2196F3;
 
-/// v1.10.1 及以前的默认紫。设备里存的正是这个值 → 视为「用户没改过」，
-/// 跟随新的默认色，否则老用户升级后还是一片紫。
-const int kLegacySeedInt = 0xFF5625BA;
+  /// v1.10.1 及以前的默认紫。设备里存的正是这个值 → 视为「用户没改过」，
+  /// 跟随新的默认色，否则老用户升级后还是一片紫。
+  static const int kLegacySeedInt = 0xFF5625BA;
 
-/// 浅色模式下把容器色固定成中性灰阶，主色只出现在强调元素上。
-/// （M3 的 surfaceContainer* 会带主色色调，rainbow 变体尤其明显，卡片会发紫）
-const Color _lightSurface = Color(0xFFFFFFFF);
-const Color _lightContainerLowest = Color(0xFFFFFFFF);
-const Color _lightContainerLow = Color(0xFFF7F8FA);
-const Color _lightContainer = Color(0xFFF1F3F6);
-const Color _lightContainerHigh = Color(0xFFEAEDF1);
-const Color _lightContainerHighest = Color(0xFFE2E6EC);
+  /// 浅色模式下把容器色固定成中性灰阶，主色只出现在强调元素上。
+  /// （M3 的 surfaceContainer* 会带主色色调，rainbow 变体尤其明显，卡片会发紫）
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightContainerLowest = Color(0xFFFFFFFF);
+  static const Color _lightContainerLow = Color(0xFFF7F8FA);
+  static const Color _lightContainer = Color(0xFFF1F3F6);
+  static const Color _lightContainerHigh = Color(0xFFEAEDF1);
+  static const Color _lightContainerHighest = Color(0xFFE2E6EC);
 
-static ThemeData buildTheme(
+  static ThemeData buildTheme(
     BuildContext context,
     Brightness brightness, [
     Color? seed,
