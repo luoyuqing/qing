@@ -414,15 +414,20 @@ class _CopyButtonState extends State<_CopyButton> {
 /// 行内语法解析：`**粗体**` `*斜体*` `` `代码` `` `~~删除线~~`
 /// `[文字](链接)` `![图](链接)` 裸链接、`\` 转义。
 class MdInline {
-  static final _code = RegExp(r'^`([^`]+)`');
-  static final _image = RegExp(r'^!\[([^\]]*)\]\(([^)\s]*)\)');
-  static final _link = RegExp(r'^\[([^\]]*)\]\(([^)\s]*)\)');
-  static final _url = RegExp(r'^https?://[^\s<>()\[\]{}]+');
-  static final _strike = RegExp(r'^~~([\s\S]+?)~~');
-  static final _boldStar = RegExp(r'^\*\*([\s\S]+?)\*\*');
-  static final _boldUnder = RegExp(r'^__([\s\S]+?)__');
-  static final _italicStar = RegExp(r'^\*([^*\n]+?)\*');
-  static final _italicUnder = RegExp(r'^_([^_\n]+?)_');
+  // 注意：这里的正则**不能带 `^`**。
+  // Dart 的 `RegExp.matchAsPrefix(src, i)` 已经保证「只从 i 开始匹配前缀」，
+  // 而 `^` 在 matchAsPrefix 里并不被当成「i 这个位置的开头」——实测连 i=0 都返回
+  // null（Dart VM 上 `^` 与 matchAsPrefix 组合直接失效）。带 `^` 会导致行内语法
+  // 一个都匹配不上，星号原样露出来。
+  static final _code = RegExp(r'`([^`]+)`');
+  static final _image = RegExp(r'!\[([^\]]*)\]\(([^)\s]*)\)');
+  static final _link = RegExp(r'\[([^\]]*)\]\(([^)\s]*)\)');
+  static final _url = RegExp(r'https?://[^\s<>()\[\]{}]+');
+  static final _strike = RegExp(r'~~([\s\S]+?)~~');
+  static final _boldStar = RegExp(r'\*\*([\s\S]+?)\*\*');
+  static final _boldUnder = RegExp(r'__([\s\S]+?)__');
+  static final _italicStar = RegExp(r'\*([^*\n]+?)\*');
+  static final _italicUnder = RegExp(r'_([^_\n]+?)_');
   static const _escapable = {
     '\\', '`', '*', '_', '~', '#', '>', '|', '[', ']', '(', ')', '+', '-',
     '.', '!',
@@ -609,21 +614,25 @@ class MdInline {
   }
 
   /// 把 Markdown 压成纯文本，用于列表摘要、通知、搜索命中这类单行展示。
+  ///
+  /// 注意：Dart 的 `replaceAll` **不支持 `$1` 反向引用**（那是 JS 的习惯），
+  /// 只有 `replaceAllMapped` 能取分组，写 `r'$1'` 会原样吐出 "$1"。
   static String strip(String src) {
     if (src.isEmpty) return '';
-    return src
+    String grp(RegExp re, int group, String s) =>
+        s.replaceAllMapped(re, (m) => m.group(group) ?? '');
+    var out = src
         .replaceAll(RegExp(r'```[\s\S]*?```'), '［代码］')
         .replaceAll(RegExp(r'^\s{0,3}#{1,6}\s+', multiLine: true), '')
         .replaceAll(RegExp(r'^\s{0,3}>\s?', multiLine: true), '')
         .replaceAll(RegExp(r'^\s{0,3}([-*+]|\d+[.)])\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '')
-        .replaceAll(RegExp(r'\[([^\]]*)\]\([^)]*\)'), r'$1')
-        .replaceAll(RegExp(r'(\*\*|__)(.*?)\1'), r'$2')
-        .replaceAll(RegExp(r'~~(.*?)~~'), r'$1')
-        .replaceAll('`', '')
-        .replaceAll(RegExp(r'\*([^*\n]+)\*'), r'$1')
-        .replaceAll(RegExp(r'\n{2,}'), '\n')
-        .trim();
+        .replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '');
+    out = grp(RegExp(r'\[([^\]]*)\]\([^)]*\)'), 1, out);
+    out = grp(RegExp(r'(\*\*|__)(.*?)\1'), 2, out);
+    out = grp(RegExp(r'~~(.*?)~~'), 1, out);
+    out = out.replaceAll('`', '');
+    out = grp(RegExp(r'\*([^*\n]+)\*'), 1, out);
+    return out.replaceAll(RegExp(r'\n{2,}'), '\n').trim();
   }
 }
 
