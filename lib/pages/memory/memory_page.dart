@@ -1,4 +1,5 @@
 import 'package:fluffychat/pages/memory/text_editor_page.dart';
+import 'package:fluffychat/pages/settings_agent/memory_vault_page.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
@@ -155,6 +156,15 @@ class _MemoryPageState extends State<MemoryPage>
                 ],
               ),
             ),
+          ),
+          IconButton(
+            tooltip: '记忆库（向量记忆条目）',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => MemoryVaultPage(persona: _persona),
+              ),
+            ),
+            icon: const Icon(Icons.inventory_2_outlined),
           ),
           IconButton(
             onPressed: _loading ? null : _load,

@@ -532,6 +532,201 @@ class DeviceHubClient {
     if (resp.statusCode != 200) throw Exception(_errText(resp));
   }
 
+  // ==================== v1.20.0 新增 ====================
+
+  static Future<Map<String, dynamic>> _deleteJson(String path) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await http
+        .delete(Uri.parse('$base$path'), headers: _headers(authToken))
+        .timeout(const Duration(seconds: 30));
+    if (resp.statusCode != 200) throw Exception(_errText(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// 查询审计（谁、何时、查了什么）
+  static Future<List<Map<String, dynamic>>> audit({
+    int limit = 200,
+    String? actor,
+  }) async {
+    final data = await getJson('/audit', query: {
+      'limit': '$limit',
+      if (actor != null && actor.isNotEmpty) 'actor': actor,
+    });
+    return _asMaps(data['items']);
+  }
+
+  /// 已配对设备
+  static Future<List<Map<String, dynamic>>> devices() async {
+    final data = await getJson('/query/devices');
+    return _asMaps(data['items']);
+  }
+
+  /// 吊销设备
+  static Future<void> revokeDevice(String id) => _deleteJson('/devices/$id');
+
+  /// 今日会话摘要
+  static Future<Map<String, dynamic>> sessionDigest({String? persona}) => getJson(
+        '/tasks/sessions/digest',
+        query: {if (persona != null) 'persona': persona},
+      );
+
+  /// 记忆库条目（zvec-memory/facts 下的 Markdown）
+  static Future<List<Map<String, dynamic>>> vault({
+    String persona = 'default',
+    String q = '',
+    int limit = 300,
+  }) async {
+    final data = await getJson('/memory/vault', query: {
+      'persona': persona,
+      'q': q,
+      'limit': '$limit',
+    });
+    return _asMaps(data['items']);
+  }
+
+  /// 单条记忆全文
+  static Future<String> vaultNote({
+    required String persona,
+    required String name,
+  }) async {
+    final data = await getJson('/memory/vault/note', query: {
+      'persona': persona,
+      'name': name,
+    });
+    return (data['content'] ?? '') as String;
+  }
+
+  /// 模型与候选池状态
+  static Future<Map<String, dynamic>> agentModel({String persona = 'default'}) =>
+      getJson('/agent/model', query: {'persona': persona});
+
+  /// 切换到某个候选
+  static Future<Map<String, dynamic>> switchModel({
+    required String persona,
+    required String candidate,
+  }) =>
+      _postJson('/agent/model/switch', {
+        'persona': persona,
+        'candidate': candidate,
+      }, timeout: const Duration(seconds: 150));
+
+  /// 只改主模型备注（同端点同模型，只重写 label）
+  static Future<Map<String, dynamic>> setModelLabel({
+    required String persona,
+    required String baseUrl,
+    required String model,
+    required String label,
+  }) =>
+      _postJson('/agent/model/switch', {
+        'persona': persona,
+        'base_url': baseUrl,
+        'model': model,
+        'label': label,
+        'provider': 'custom',
+        'api_mode': 'chat_completions',
+      }, timeout: const Duration(seconds: 150));
+
+  /// 新增候选（scope=all 会同步三个人设）
+  static Future<Map<String, dynamic>> addCandidate({
+    required String persona,
+    required String key,
+    required String label,
+    required String model,
+    required String baseUrl,
+    String provider = 'custom',
+    String apiMode = 'chat_completions',
+    String keyEnv = '',
+    String newEnvValue = '',
+    String scope = 'all',
+  }) =>
+      _postJson('/agent/candidates', {
+        'persona': persona,
+        'key': key,
+        'label': label,
+        'model': model,
+        'base_url': baseUrl,
+        'provider': provider,
+        'api_mode': apiMode,
+        if (keyEnv.isNotEmpty) 'key_env': keyEnv,
+        if (newEnvValue.isNotEmpty) 'new_env_value': newEnvValue,
+        'scope': scope,
+      }, timeout: const Duration(seconds: 200));
+
+  /// 局部更新候选
+  static Future<Map<String, dynamic>> updateCandidate({
+    required String persona,
+    required String key,
+    required Map<String, dynamic> fields,
+  }) =>
+      _patchJson('/agent/candidates/$key?persona=$persona', fields);
+
+  /// 删除候选
+  static Future<Map<String, dynamic>> deleteCandidate({
+    required String persona,
+    required String key,
+  }) =>
+      _deleteJson('/agent/candidates/$key?persona=$persona');
+
+  /// 探活某个候选
+  static Future<Map<String, dynamic>> testCandidate({
+    required String persona,
+    required String key,
+  }) =>
+      _postJson('/agent/candidates/$key/test', {'persona': persona},
+          timeout: const Duration(seconds: 60));
+
+  /// 探活当前主模型
+  static Future<Map<String, dynamic>> testCurrentModel({String persona = 'default'}) =>
+      _postJson('/agent/model/test', {'persona': persona},
+          timeout: const Duration(seconds: 60));
+
+  /// 保存备用链
+  static Future<Map<String, dynamic>> saveFallback({
+    required String persona,
+    required List<Map<String, dynamic>> chain,
+  }) =>
+      _postJson('/agent/fallback', {'persona': persona, 'chain': chain},
+          timeout: const Duration(seconds: 90));
+
+  /// 凭据健康（只有变量名与来源，无值）
+  static Future<List<Map<String, dynamic>>> credentials() async {
+    final data = await getJson('/agent/credentials');
+    return _asMaps(data['items']);
+  }
+
+  /// 插件清单
+  static Future<List<Map<String, dynamic>>> plugins() async {
+    final data = await getJson('/agent/plugins');
+    return _asMaps(data['items']);
+  }
+
+  /// 用量统计
+  static Future<Map<String, dynamic>> usage({String range = '7d'}) =>
+      getJson('/usage/summary', query: {'range': range});
+
+  /// 定时任务执行历史
+  static Future<List<Map<String, dynamic>>> routineHistory({
+    String persona = 'default',
+    required String jobId,
+    int limit = 20,
+  }) async {
+    final data = await getJson('/routines/$jobId/history', query: {
+      'persona': persona,
+      'limit': '$limit',
+    });
+    return _asMaps(data['items']);
+  }
+
+  /// 立即运行定时任务
+  static Future<Map<String, dynamic>> runRoutine({
+    required String persona,
+    required String jobId,
+  }) =>
+      _postJson('/routines/$jobId/run', {'persona': persona},
+          timeout: const Duration(seconds: 60));
+
   static List<Map<String, dynamic>> _asMaps(dynamic value) =>
       (value as List? ?? [])
           .whereType<Map>()

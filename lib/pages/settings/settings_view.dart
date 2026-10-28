@@ -6,6 +6,9 @@
 import 'package:async/async.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/settings_agent/model_page.dart';
+import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
+import 'package:fluffychat/pages/settings_agent/usage_page.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -225,6 +228,30 @@ class SettingsView extends StatelessWidget {
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
               onTap: () => context.go('/rooms/settings/device-hub'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune_outlined),
+              title: const Text('模型与推理'),
+              subtitle: const Text('端点 · 模型 · 候选池 · 备用链（按人设独立）'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AgentModelPage()),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.extension_outlined),
+              title: const Text('插件与能力'),
+              subtitle: const Text('X2 上已安装 / 内置的插件'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PluginsPage()),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.insights_outlined),
+              title: const Text('用量'),
+              subtitle: const Text('请求数 · Tokens · 预估花费（按模型/人设）'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UsagePage()),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.extension_outlined),

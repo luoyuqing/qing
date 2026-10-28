@@ -35,6 +35,7 @@ class _TasksPageState extends State<TasksPage>
   String? _error;
   List<Map<String, dynamic>> _sessions = const [];
   List<Map<String, dynamic>> _routines = const [];
+  Map<String, dynamic>? _digest;
   String _tab = 'sessions';
 
   /// 收藏：只存本地（SharedPreferences），不上传服务端。
@@ -72,11 +73,14 @@ class _TasksPageState extends State<TasksPage>
       final results = await Future.wait([
         DeviceHubClient.sessions(persona: widget.persona, limit: 30),
         DeviceHubClient.routines(persona: widget.persona),
+        DeviceHubClient.sessionDigest(persona: widget.persona)
+            .catchError((_) => <String, dynamic>{}),
       ]);
       if (!mounted) return;
       setState(() {
-        _sessions = results[0];
-        _routines = results[1];
+        _sessions = results[0] as List<Map<String, dynamic>>;
+        _routines = results[1] as List<Map<String, dynamic>>;
+        _digest = results[2] as Map<String, dynamic>;
         _loading = false;
       });
     } catch (e) {
@@ -262,19 +266,69 @@ class _TasksPageState extends State<TasksPage>
     final sessions = _sessions.length;
     final routines = _routines.length;
     final enabled = _routines.where((r) => r['enabled'] == true).length;
-    return QingHero(
-      icon: Icons.task_alt_rounded,
-      eyebrow: '任务 · 定时',
-      title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
-      subtitle: routines == 0
-          ? '小爱还没有定时任务'
-          : '$routines 个定时任务，其中 $enabled 个在跑',
-      chips: [
-        if (sessions > 0) '$sessions 段会话',
-        if (_favOrder.isNotEmpty) '${_favOrder.length} 个收藏',
-        if (routines > 0) '$routines 个定时',
-        if (enabled > 0) '$enabled 个运行中',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        QingHero(
+          icon: Icons.task_alt_rounded,
+          eyebrow: '任务 · 定时',
+          title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
+          subtitle: routines == 0
+              ? '小爱还没有定时任务'
+              : '$routines 个定时任务，其中 $enabled 个在跑',
+          chips: [
+            if (sessions > 0) '$sessions 段会话',
+            if (_favOrder.isNotEmpty) '${_favOrder.length} 个收藏',
+            if (routines > 0) '$routines 个定时',
+            if (enabled > 0) '$enabled 个运行中',
+          ],
+        ),
+        if (_digest != null && _digestItemCount > 0) ...[
+          const SizedBox(height: 10),
+          _digestCard(theme),
+        ],
       ],
+    );
+  }
+
+  int get _digestItemCount {
+    final items = (_digest?['items'] as List?) ?? const [];
+    return items.length;
+  }
+
+  Widget _digestCard(ThemeData theme) {
+    final items = (_digest?['items'] as List?) ?? const [];
+    final total = items.fold<int>(
+      0,
+      (sum, e) => sum + (((e as Map)['message_count'] as num?)?.toInt() ?? 0),
+    );
+    final first = items.isEmpty ? '' : '${(items.first as Map)['title'] ?? ''}';
+    return QingCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        children: [
+          Icon(Icons.summarize_outlined, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('今天 ${items.length} 段会话 · $total 条',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                if (first.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(first,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -746,6 +800,9 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
       TextEditingController(text: '${widget.routine['prompt'] ?? ''}');
   late bool _enabled = widget.routine['enabled'] == true;
   bool _saving = false;
+  bool _running = false;
+  bool _histLoading = false;
+  List<Map<String, dynamic>> _history = const [];
 
   /// 执行计划拆成四种「傻瓜选项」，不再逼用户写 cron：
   /// 每天 / 每周 / 每小时 / 自定义。前三者由界面拼 cron，自定义保留原始输入。
@@ -767,6 +824,78 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
     _initSchedule(
       '${widget.routine['schedule_expr'] ?? widget.routine['schedule'] ?? ''}',
     );
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _histLoading = true);
+    try {
+      final items = await DeviceHubClient.routineHistory(
+        persona: widget.persona,
+        jobId: '${widget.routine['id']}',
+        limit: 10,
+      );
+      if (!mounted) return;
+      setState(() => _history = items);
+    } catch (_) {
+      // 历史读不到不影响编辑
+    } finally {
+      if (mounted) setState(() => _histLoading = false);
+    }
+  }
+
+  Future<void> _runNow() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('立即运行一次'),
+        content: const Text('会真的执行这个任务（可能消耗模型用量、可能推送消息）。确定现在跑一次？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('运行')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _running = true);
+    try {
+      await DeviceHubClient.runRoutine(
+        persona: widget.persona,
+        jobId: '${widget.routine['id']}',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已触发，几秒后下面会出现这次的结果')),
+      );
+      await Future<void>.delayed(const Duration(seconds: 4));
+      await _loadHistory();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('触发失败：$e')));
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  String _when(Map<String, dynamic> h) {
+    final a = DateTime.tryParse('${h['started_at'] ?? ''}');
+    if (a == null) return '';
+    final l = a.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${l.month}-${l.day} ${two(l.hour)}:${two(l.minute)}';
+  }
+
+  String _dur(Map<String, dynamic> h) {
+    final a = DateTime.tryParse('${h['started_at'] ?? ''}');
+    final b = DateTime.tryParse('${h['finished_at'] ?? ''}');
+    if (a == null || b == null) return '';
+    final s = b.difference(a).inMilliseconds / 1000;
+    return s >= 10 ? '${s.toStringAsFixed(0)}s' : '${s.toStringAsFixed(1)}s';
   }
 
   /// 把现有 cron 反解成对应的选项；反解不出就落到「自定义」
@@ -1019,6 +1148,127 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
               ),
             ),
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('立即运行',
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                            Text('不用等排期，现在就执行一次',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: _running ? null : _runNow,
+                        style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact),
+                        child: _running
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('运行'),
+                      ),
+                    ],
+                  ),
+                  if (_histLoading)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('读取历史…',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant)),
+                    )
+                  else if (_history.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: theme.colorScheme.outlineVariant
+                            .withValues(alpha: 0.6)),
+                    const SizedBox(height: 8),
+                    Text('最近运行',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant)),
+                    for (final h in _history.take(5))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: '${h['status']}' == 'completed'
+                                    ? const Color(0xFF4E8A67)
+                                    : const Color(0xFFC05552),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(_when(h),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(fontSize: 11)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${h['status']}' == 'completed' ? '成功' : '${h['status']}',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                            fontSize: 11,
+                                            color: '${h['status']}' == 'completed'
+                                                ? const Color(0xFF4E8A67)
+                                                : const Color(0xFFC05552)),
+                                      ),
+                                      const Spacer(),
+                                      Text(_dur(h),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                              fontSize: 11,
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant)),
+                                    ],
+                                  ),
+                                  if ('${h['error'] ?? ''}'.isNotEmpty)
+                                    Text('${h['error']}',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                            fontSize: 10.5,
+                                            color: theme.colorScheme.onSurfaceVariant)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(

@@ -2,6 +2,8 @@ import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/utils/qing_boot.dart';
 import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
+import 'package:fluffychat/pages/settings_agent/audit_page.dart';
+import 'package:fluffychat/pages/settings_agent/devices_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
@@ -338,6 +340,28 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ServerStatusPage()),
+            ),
+          ),
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.phonelink_lock_outlined),
+            title: const Text('已配对设备'),
+            subtitle: const Text('查看 / 吊销曾经连过 X2 的手机'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DevicesPage()),
+            ),
+          ),
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('查询审计'),
+            subtitle: const Text('小爱何时查了什么数据、改了什么'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AuditPage()),
             ),
           ),
           const Divider(),
