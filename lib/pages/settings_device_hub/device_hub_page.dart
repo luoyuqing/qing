@@ -1,6 +1,7 @@
 import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/utils/qing_boot.dart';
+import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
@@ -328,6 +329,17 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
                 child: const Text('解除'),
               ),
             ),
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.monitor_heart_outlined),
+            title: const Text('X2 服务器状态'),
+            subtitle: const Text('CPU、内存、磁盘、服务与容器的实时占用'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ServerStatusPage()),
+            ),
+          ),
           const Divider(),
 
           _sectionTitle(context, '数据授权（逐项开启）'),

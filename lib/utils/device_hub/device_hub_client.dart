@@ -272,6 +272,17 @@ class DeviceHubClient {
 
 
   // ---------- 连接应用（MCP，由 hub 代理） ----------
+  /// X2 整机 + 按服务/容器的资源占用（服务端直读 /proc 与 cgroup）
+  static Future<Map<String, dynamic>> serverStatus() => getJson('/server/status');
+
+  /// 某个服务或容器的进程明细（点开时才请求）
+  static Future<Map<String, dynamic>> serverServiceDetail(String key) =>
+      getJson('/server/service', query: {'key': key});
+
+  /// 整机历史曲线（1h / 6h / 24h，服务端每分钟采样）
+  static Future<Map<String, dynamic>> serverHistory({String range = '24h'}) =>
+      getJson('/server/history', query: {'range': range});
+
   static Future<List<Map<String, dynamic>>> mcpServers() async {
     final data = await getJson('/mcp/servers');
     return (data['items'] as List? ?? [])
