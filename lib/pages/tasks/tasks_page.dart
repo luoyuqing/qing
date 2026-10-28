@@ -1,6 +1,10 @@
 import 'dart:convert';
 
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/url_launcher.dart';
+import 'package:fluffychat/widgets/markdown_view.dart';
+
+import 'session_messages_pane.dart';
 import 'package:fluffychat/utils/qing_schedule.dart';
 import 'package:fluffychat/widgets/matrix.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
@@ -382,7 +386,8 @@ class _TasksPageState extends State<TasksPage>
 
   Widget _sessionCard(ThemeData theme, Map<String, dynamic> s) {
     final name = '${s['name'] ?? '会话'}';
-    final snippet = '${s['last_user_message'] ?? s['last_bot_message'] ?? ''}';
+    final snippet =
+        MdInline.strip('${s['last_user_message'] ?? s['last_bot_message'] ?? ''}');
     return QingCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -509,41 +514,11 @@ class _TasksPageState extends State<TasksPage>
               ),
             ),
             const Divider(height: 1),
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: DeviceHubClient.sessionMessages(
-                  '${s['id']}',
-                  persona: widget.persona,
-                  limit: 80,
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text('读取失败：${snapshot.error}',
-                            style: theme.textTheme.bodySmall),
-                      ),
-                    );
-                  }
-                  final messages = snapshot.data ?? const [];
-                  if (messages.isEmpty) {
-                    return Center(
-                      child: Text('这段会话没有可展示的文字记录',
-                          style: theme.textTheme.bodySmall),
-                    );
-                  }
-                  return ListView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: messages.length,
-                    itemBuilder: (context, i) => _bubble(theme, messages[i]),
-                  );
-                },
-              ),
+            SessionMessagesPane(
+              sessionId: '${s['id']}',
+              persona: widget.persona,
+              scrollController: scrollController,
+              bubbleBuilder: (m) => _bubble(theme, m),
             ),
           ],
         ),
@@ -613,8 +588,11 @@ class _TasksPageState extends State<TasksPage>
               ),
             ),
             const SizedBox(height: 3),
-            Text('${m['content'] ?? ''}',
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
+            MarkdownView(
+              data: '${m['content'] ?? ''}',
+              baseStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+              onTapLink: (url) => UrlLauncher(context, url).launchUrl(),
+            ),
             const SizedBox(height: 4),
             Text(_formatTime(m['timestamp']),
                 style: theme.textTheme.labelSmall?.copyWith(

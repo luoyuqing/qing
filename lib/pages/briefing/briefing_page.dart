@@ -1,4 +1,6 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
+import 'package:fluffychat/utils/url_launcher.dart';
+import 'package:fluffychat/widgets/markdown_view.dart';
 import 'package:fluffychat/utils/qing_schedule.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:material_ui/material_ui.dart';
@@ -728,120 +730,21 @@ class _BriefingPageState extends State<BriefingPage> {
     );
   }
 
+  /// 正文：交给通用 MarkdownView，标题/引用/列表/代码块/表格/
+  /// 粗斜体/行内代码/链接全部按标记渲染，不再把星号和井号原样露出来。
   List<Widget> _renderContent(ThemeData theme, String content) {
-    final out = <Widget>[];
-    final base = theme.textTheme.bodyMedium?.copyWith(
-          fontSize: 13.8,
-          height: 1.62,
-          color: theme.colorScheme.onSurface.withAlpha(225),
-        ) ??
-        const TextStyle(fontSize: 13.8, height: 1.62);
-    for (final raw in content.split('\n')) {
-      final line = raw.trimRight().trim();
-      if (line.isEmpty) {
-        out.add(const SizedBox(height: 8));
-        continue;
-      }
-      if (line.startsWith('### ')) {
-        out.add(Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: Text(_clean(line.substring(4)),
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-        ));
-        continue;
-      }
-      if (line.startsWith('## ')) {
-        out.add(Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 6),
-          child: Text(_clean(line.substring(3)),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontSize: 16.5,
-                height: 1.35,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
-              )),
-        ));
-        continue;
-      }
-      if (line.startsWith('> ')) {
-        out.add(Container(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHigh.withAlpha(120),
-            borderRadius: BorderRadius.circular(12),
-            border: Border(
-              left: BorderSide(
-                  color: theme.colorScheme.primary.withAlpha(140), width: 3),
-            ),
-          ),
-          child: Text.rich(_inline(_clean(line.substring(2)), base.copyWith(
-            fontSize: 12.5,
-            color: theme.colorScheme.onSurfaceVariant,
-          ))),
-        ));
-        continue;
-      }
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        var text = line.substring(2).trim();
-        var checkbox = false;
-        var checked = false;
-        if (text.startsWith('[ ] ')) {
-          checkbox = true;
-          text = text.substring(4);
-        } else if (text.toLowerCase().startsWith('[x] ')) {
-          checkbox = true;
-          checked = true;
-          text = text.substring(4);
-        }
-        out.add(Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: checkbox ? 3.0 : 8.0, right: 9.0),
-                child: checkbox
-                    ? Icon(
-                        checked
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        size: 14,
-                        color: checked
-                            ? theme.colorScheme.primary.withAlpha(180)
-                            : theme.colorScheme.outline,
-                      )
-                    : Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.colorScheme.primary.withAlpha(170),
-                        ),
-                      ),
-              ),
-              Expanded(
-                child: Text.rich(_inline(
-                  text.replaceAll('`', ''),
-                  base.copyWith(
-                    color: checked
-                        ? theme.colorScheme.onSurfaceVariant.withAlpha(140)
-                        : null,
-                  ),
-                )),
-              ),
-            ],
-          ),
-        ));
-        continue;
-      }
-      out.add(Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Text.rich(_inline(line.replaceAll('`', ''), base)),
-      ));
-    }
-    return out;
+    return [
+      MarkdownView(
+        data: content,
+        baseStyle: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 13.8,
+              height: 1.62,
+              color: theme.colorScheme.onSurface.withAlpha(225),
+            ) ??
+            const TextStyle(fontSize: 13.8, height: 1.62),
+        onTapLink: (url) => UrlLauncher(context, url).launchUrl(),
+      ),
+    ];
   }
 
   Widget _todosCard(ThemeData theme) {
@@ -955,30 +858,8 @@ class _BriefingPageState extends State<BriefingPage> {
     return '';
   }
 
-  String _clean(String s) => s
-      .replaceAll('**', '')
-      .replaceAll('__', '')
-      .replaceAll('`', '')
-      .replaceAll(RegExp(r'^#+\s*'), '')
-      .trim();
-
-  TextSpan _inline(String s, TextStyle base) {
-    final spans = <TextSpan>[];
-    final re = RegExp(r'\*\*(.+?)\*\*');
-    var last = 0;
-    for (final m in re.allMatches(s)) {
-      if (m.start > last) {
-        spans.add(TextSpan(text: s.substring(last, m.start)));
-      }
-      spans.add(TextSpan(
-        text: m.group(1),
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ));
-      last = m.end;
-    }
-    if (last < s.length) spans.add(TextSpan(text: s.substring(last)));
-    return TextSpan(style: base, children: spans);
-  }
+  /// 压成纯文本（标题、摘要这些单行展示用）。
+  String _clean(String s) => MdInline.strip(s);
 
   String _clock(String? iso) {
     if (iso == null || iso.length < 16) return '';

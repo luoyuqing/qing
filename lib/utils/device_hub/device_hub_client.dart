@@ -415,6 +415,27 @@ class DeviceHubClient {
     return _asMaps(data['items']);
   }
 
+  /// 带翻页信息：has_more + 每条消息的 cursor（原样回传即取更早一页）。
+  static Future<SessionMessagesPage> sessionMessagesPage(
+    String sessionId, {
+    String persona = 'default',
+    int limit = 120,
+    String? before,
+  }) async {
+    final query = {'persona': persona, 'limit': '$limit'};
+    if (before != null && before.isNotEmpty) query['before'] = before;
+    final data = await getJson(
+      '/tasks/sessions/$sessionId/messages',
+      query: query,
+    );
+    final total = data['total'];
+    return SessionMessagesPage(
+      items: _asMaps(data['items']),
+      hasMore: data['has_more'] == true,
+      total: total is num ? total.toInt() : null,
+    );
+  }
+
   static Future<List<Map<String, dynamic>>> routines({
     String persona = 'default',
   }) async {
@@ -505,4 +526,17 @@ class DeviceHubClient {
           .whereType<Map>()
           .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
           .toList();
+}
+
+/// 一页会话消息 + 是否还有更早的。
+class SessionMessagesPage {
+  const SessionMessagesPage({
+    required this.items,
+    required this.hasMore,
+    this.total,
+  });
+
+  final List<Map<String, dynamic>> items;
+  final bool hasMore;
+  final int? total;
 }
