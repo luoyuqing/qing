@@ -38,11 +38,11 @@ class QingChatTheme {
   /// 顺序即设置页展示顺序，按色相环绕排列。
   static const List<QingChatAccent> accents = <QingChatAccent>[
     QingChatAccent('晴空蓝', Color(0xFF5B87C4)), // ★ 默认
-    QingChatAccent('雾紫', Color(0xFF7A6A9C)),
+    QingChatAccent('海蓝', Color(0xFF3F6A9E)),
+    QingChatAccent('浅空蓝', Color(0xFF7FA6D9)),
     QingChatAccent('灰蓝', Color(0xFF6E87A6)),
     QingChatAccent('鼠尾草', Color(0xFF7D9B87)),
     QingChatAccent('雾青', Color(0xFF6E9393)),
-    QingChatAccent('藕荷', Color(0xFFA1839B)),
     QingChatAccent('陶粉', Color(0xFFB08892)),
     QingChatAccent('燕麦', Color(0xFF9B8F6F)),
     QingChatAccent('石墨', Color(0xFF75757C)),
@@ -50,8 +50,8 @@ class QingChatTheme {
     QingChatAccent('琥珀', Color(0xFF82715E)),
     QingChatAccent('苔绿', Color(0xFF78A25B)),
     QingChatAccent('黛蓝', Color(0xFF8297A6)),
+    QingChatAccent('湖蓝', Color(0xFF4E8FB8)),
     QingChatAccent('靛蓝', Color(0xFF5B5BA2)),
-    QingChatAccent('暮紫', Color(0xFF955CA3)),
   ];
 
   /// 默认聊天主题色：晴空蓝

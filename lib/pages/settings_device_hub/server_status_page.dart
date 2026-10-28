@@ -22,20 +22,20 @@ const Color _badColor = Color(0xFFC05552);
 /// 不再读全局值。深色模式给一套同色相的暗色版，避免夜间刺眼。
 ThemeData _fixedServerTheme(BuildContext context) {
   final light = Theme.of(context).brightness == Brightness.light;
-  const sky = Color(0xFF2196F3); // 天空蓝主色（浅色模式）
-  const skyBright = Color(0xFF64B5F6); // 同色相提亮（深色模式）
-  const skyDeep = Color(0xFF1565C0); // 浅蓝底上的文字/强调
+  const sky = Color(0xFF5B87C4); // 晴空蓝主色（与全局默认主色同一个值）
+  const skyBright = Color(0xFF8FB4DC); // 同色相提亮（深色模式）
+  const skyDeep = Color(0xFF3F6A9E); // 浅蓝底上的文字/强调
   final base = Theme.of(context);
   return base.copyWith(
     scaffoldBackgroundColor: light ? Colors.white : const Color(0xFF121417),
     colorScheme: base.colorScheme.copyWith(
       primary: light ? sky : skyBright,
       onPrimary: light ? Colors.white : const Color(0xFF0B2540),
-      primaryContainer: light ? const Color(0xFFE3F0FB) : const Color(0xFF17324F),
-      onPrimaryContainer: light ? skyDeep : const Color(0xFFB5D4F4),
+      primaryContainer: light ? const Color(0xFFE7EEF7) : const Color(0xFF20364F),
+      onPrimaryContainer: light ? skyDeep : const Color(0xFFC9DCEF),
       secondary: light ? sky : skyBright,
-      secondaryContainer: light ? const Color(0xFFE3F0FB) : const Color(0xFF17324F),
-      onSecondaryContainer: light ? skyDeep : const Color(0xFFB5D4F4),
+      secondaryContainer: light ? const Color(0xFFE7EEF7) : const Color(0xFF20364F),
+      onSecondaryContainer: light ? skyDeep : const Color(0xFFC9DCEF),
       tertiary: light ? sky : skyBright,
       surface: light ? Colors.white : const Color(0xFF121417),
       onSurface: light ? const Color(0xFF1B1F24) : const Color(0xFFE8EAED),

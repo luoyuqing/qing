@@ -40,12 +40,21 @@ abstract class FluffyThemes {
   static const Duration animationDuration = Duration(milliseconds: 250);
   static const Curve animationCurve = Curves.easeInOut;
 
-  /// v1.10.2 · 全局主色默认值：天空蓝。
-  static const int kDefaultSeedInt = 0xFF2196F3;
+  /// v1.10.4 · 全局主色默认值：晴空蓝（与聊天气泡默认色同一个值）。
+  static const int kDefaultSeedInt = 0xFF5B87C4;
 
-  /// v1.10.1 及以前的默认紫。设备里存的正是这个值 → 视为「用户没改过」，
-  /// 跟随新的默认色，否则老用户升级后还是一片紫。
-  static const int kLegacySeedInt = 0xFF5625BA;
+  /// v1.10.4 · 历史上出现过的所有紫色 seed。设备里存的是其中之一 →
+  /// 视为「用户没主动选过蓝色」，跟随新默认色，否则老用户升级后还是一片紫。
+  /// 覆盖：v1.10.1 旧默认紫、FluffyChat 原生 primaryColor（设置里「默认」）、
+  /// 色板里的雾紫 / 藕荷、聊天气泡的暮紫，以及 v1.10.2 那版天空蓝默认值。
+  static const Set<int> kLegacyPurpleSeeds = <int>{
+    0xFF5625BA, // v1.10.1 及以前的默认紫
+    0xFF261386, // FluffyChat 原生 primaryColor（设置里「默认」选项）
+    0xFF7A6A9C, // 雾紫
+    0xFFA1839B, // 藕荷
+    0xFF955CA3, // 暮紫
+    0xFF2196F3, // v1.10.2/v1.10.3 的默认天空蓝（同属蓝，统一到晴空蓝一族）
+  };
 
   /// 浅色模式下把容器色固定成中性灰阶，主色只出现在强调元素上。
   /// （M3 的 surfaceContainer* 会带主色色调，rainbow 变体尤其明显，卡片会发紫）
@@ -62,7 +71,8 @@ abstract class FluffyThemes {
     Color? seed,
   ]) {
     final stored = AppSettings.colorSchemeSeedInt.value;
-    final seedColor = seed ?? Color(stored == kLegacySeedInt ? kDefaultSeedInt : stored);
+    final seedColor =
+        seed ?? Color(kLegacyPurpleSeeds.contains(stored) ? kDefaultSeedInt : stored);
     var colorScheme = ColorScheme.fromSeed(
       brightness: brightness,
       seedColor: seedColor,

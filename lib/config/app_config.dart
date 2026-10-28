@@ -6,7 +6,9 @@
 import 'dart:ui';
 
 abstract class AppConfig {
-  static const Color primaryColor = Color(0xFF261386);
+  // v1.10.4：系统默认主色统一为「晴空蓝」#5B87C4，与聊天气泡默认色一致。
+  // 这里原来是 FluffyChat 的深紫 #261386（设置里「默认」那个圆点一直是紫的根源）。
+  static const Color primaryColor = Color(0xFF5B87C4);
 
   static const Color chatColor = primaryColor;
   static const double messageFontSize = 16.0;
