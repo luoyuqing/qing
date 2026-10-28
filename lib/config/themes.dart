@@ -40,16 +40,46 @@ abstract class FluffyThemes {
   static const Duration animationDuration = Duration(milliseconds: 250);
   static const Curve animationCurve = Curves.easeInOut;
 
-  static ThemeData buildTheme(
+/// v1.10.2 · 全局主色默认值：天空蓝。
+const int kDefaultSeedInt = 0xFF2196F3;
+
+/// v1.10.1 及以前的默认紫。设备里存的正是这个值 → 视为「用户没改过」，
+/// 跟随新的默认色，否则老用户升级后还是一片紫。
+const int kLegacySeedInt = 0xFF5625BA;
+
+/// 浅色模式下把容器色固定成中性灰阶，主色只出现在强调元素上。
+/// （M3 的 surfaceContainer* 会带主色色调，rainbow 变体尤其明显，卡片会发紫）
+const Color _lightSurface = Color(0xFFFFFFFF);
+const Color _lightContainerLowest = Color(0xFFFFFFFF);
+const Color _lightContainerLow = Color(0xFFF7F8FA);
+const Color _lightContainer = Color(0xFFF1F3F6);
+const Color _lightContainerHigh = Color(0xFFEAEDF1);
+const Color _lightContainerHighest = Color(0xFFE2E6EC);
+
+static ThemeData buildTheme(
     BuildContext context,
     Brightness brightness, [
     Color? seed,
   ]) {
-    final colorScheme = ColorScheme.fromSeed(
+    final stored = AppSettings.colorSchemeSeedInt.value;
+    final seedColor = seed ?? Color(stored == kLegacySeedInt ? kDefaultSeedInt : stored);
+    var colorScheme = ColorScheme.fromSeed(
       brightness: brightness,
-      seedColor: seed ?? Color(AppSettings.colorSchemeSeedInt.value),
-      dynamicSchemeVariant: DynamicSchemeVariant.rainbow,
+      seedColor: seedColor,
+      // rainbow 会把主色色调大量掺进容器色；tonalSpot 是 M3 默认，容器基本中性
+      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
     );
+    if (brightness == Brightness.light) {
+      colorScheme = colorScheme.copyWith(
+        surface: _lightSurface,
+        surfaceContainerLowest: _lightContainerLowest,
+        surfaceContainerLow: _lightContainerLow,
+        surfaceContainer: _lightContainer,
+        surfaceContainerHigh: _lightContainerHigh,
+        surfaceContainerHighest: _lightContainerHighest,
+        surfaceTint: Colors.transparent,
+      );
+    }
     final isColumnMode = FluffyThemes.isColumnMode(context);
     final dividerColor = brightness == Brightness.dark
         ? colorScheme.surfaceContainerHighest

@@ -56,8 +56,10 @@ enum AppSettings<T> {
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
   // colorSchemeSeed stored as ARGB int
   //
-  // ⚠️ 这是**全局主色**（影响所有页面），v1.8.0 起保持 v1.7.1 原样不动。
-  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5625BA),
+  // ⚠️ 这是**全局主色**（影响所有页面）。
+  // v1.10.2 起默认改为天空蓝 #2196F3；v1.10.1 及以前是紫 0xFF5625BA。
+  // 设备里存的若仍是那个旧紫，themes.dart 会当作「没改过」并跟随新的默认蓝。
+  colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF2196F3),
   // 清助理 v1.8.0 · 聊天气泡主题色（独立于全局主色）
   //
   // 只影响聊天气泡底色，不影响任何其他页面。
