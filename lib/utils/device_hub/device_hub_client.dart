@@ -128,6 +128,32 @@ class DeviceHubClient {
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
+
+  /// GET 带一次重试：5G/WiFi 切换或 CF 边缘抖动时，TLS 握手会抛
+  /// HandshakeException（Connection terminated during handshake），
+  /// 这类错误重试一次基本就过；业务错误（4xx/5xx）不重试。
+  static Future<http.Response> _getWithRetry(
+    Uri uri,
+    Map<String, String> headers,
+  ) async {
+    Future<http.Response> once() =>
+        http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+    try {
+      return await once();
+    } catch (e) {
+      final s = '$e';
+      if (s.contains('Handshake') ||
+          s.contains('Socket') ||
+          s.contains('Timeout') ||
+          s.contains('timed out') ||
+          s.contains('Connection')) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        return once();
+      }
+      rethrow;
+    }
+  }
+
   static String _errText(http.Response resp) {
     try {
       final body = jsonDecode(utf8.decode(resp.bodyBytes));
@@ -145,8 +171,7 @@ class DeviceHubClient {
     if (authToken == null) throw Exception('尚未配对');
     final base = await baseUrl();
     final uri = Uri.parse('$base$path').replace(queryParameters: query);
-    final resp =
-        await http.get(uri, headers: _headers(authToken)).timeout(const Duration(seconds: 12));
+    final resp = await _getWithRetry(uri, _headers(authToken));
     if (resp.statusCode != 200) {
       throw Exception('HTTP ${resp.statusCode}');
     }

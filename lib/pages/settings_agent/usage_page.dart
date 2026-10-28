@@ -65,7 +65,10 @@ class _UsagePageState extends State<UsagePage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: const Text('用量')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('用量')),
       body: Column(
         children: [
           Padding(

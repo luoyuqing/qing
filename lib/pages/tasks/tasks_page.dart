@@ -266,27 +266,16 @@ class _TasksPageState extends State<TasksPage>
     final sessions = _sessions.length;
     final routines = _routines.length;
     final enabled = _routines.where((r) => r['enabled'] == true).length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        QingHero(
-          icon: Icons.task_alt_rounded,
-          eyebrow: '任务 · 定时',
-          title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
-          subtitle: routines == 0
-              ? '小爱还没有定时任务'
-              : '$routines 个定时任务，其中 $enabled 个在跑',
-          chips: [
-            if (sessions > 0) '$sessions 段会话',
-            if (_favOrder.isNotEmpty) '${_favOrder.length} 个收藏',
-            if (routines > 0) '$routines 个定时',
-            if (enabled > 0) '$enabled 个运行中',
-          ],
-        ),
-        if (_digest != null && _digestItemCount > 0) ...[
-          const SizedBox(height: 10),
-          _digestCard(theme),
-        ],
+    return QingHero(
+      icon: Icons.task_alt_rounded,
+      eyebrow: '任务 · 定时',
+      title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
+      subtitle: routines == 0
+          ? '小爱还没有定时任务'
+          : '$routines 个定时任务，其中 $enabled 个在跑',
+      chips: [
+        if (_digestItemCount > 0) '今日 $_digestItemCount 段会话',
+        if (_digestTotal > 0) '$_digestTotal 条',
       ],
     );
   }
@@ -296,39 +285,11 @@ class _TasksPageState extends State<TasksPage>
     return items.length;
   }
 
-  Widget _digestCard(ThemeData theme) {
+  int get _digestTotal {
     final items = (_digest?['items'] as List?) ?? const [];
-    final total = items.fold<int>(
+    return items.fold<int>(
       0,
       (sum, e) => sum + (((e as Map)['message_count'] as num?)?.toInt() ?? 0),
-    );
-    final first = items.isEmpty ? '' : '${(items.first as Map)['title'] ?? ''}';
-    return QingCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(
-        children: [
-          Icon(Icons.summarize_outlined, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('今天 ${items.length} 段会话 · $total 条',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                if (first.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(first,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 

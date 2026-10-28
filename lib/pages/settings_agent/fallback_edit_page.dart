@@ -108,6 +108,8 @@ class _FallbackEditPageState extends State<FallbackEditPage> {
     return Scaffold(
       backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('编辑备用链'),
         actions: [
           IconButton(

@@ -234,6 +234,8 @@ class _AgentModelPageState extends State<AgentModelPage> {
     return Scaffold(
       backgroundColor: qingPageBackground(context),
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         title: const Text('模型与推理'),
         actions: [
           IconButton(onPressed: _busy ? null : _load, icon: const Icon(Icons.refresh)),

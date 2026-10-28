@@ -201,7 +201,7 @@ class MarkdownView extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh.withAlpha(120),
+        color: const Color(0xFFF1F5FA),
         borderRadius: BorderRadius.circular(10),
         border: Border(
           left: BorderSide(

@@ -119,7 +119,10 @@ class _MemoryVaultPageState extends State<MemoryVaultPage> {
     final total = _items.fold<int>(0, (s, e) => s + ((e['size'] as num?)?.toInt() ?? 0));
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: const Text('记忆库')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('记忆库')),
       body: Column(
         children: [
           Padding(

@@ -51,7 +51,10 @@ class _PluginsPageState extends State<PluginsPage> {
     final builtin = _items.where((e) => e['kind'] != 'installed').toList();
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: const Text('插件与能力')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('插件与能力')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -60,7 +63,21 @@ class _PluginsPageState extends State<PluginsPage> {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      QingCard(child: Text('读取失败：$_error', style: theme.textTheme.bodySmall)),
+                      QingCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('读取失败', style: theme.textTheme.titleSmall),
+                            const SizedBox(height: 6),
+                            Text('$_error',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant)),
+                            const SizedBox(height: 12),
+                            FilledButton.tonal(
+                                onPressed: _load, child: const Text('重试')),
+                          ],
+                        ),
+                      ),
                     ],
                   )
                 : ListView(

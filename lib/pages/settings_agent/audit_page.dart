@@ -119,7 +119,10 @@ class _AuditPageState extends State<AuditPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: const Text('查询审计')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('查询审计')),
       body: Column(
         children: [
           Padding(

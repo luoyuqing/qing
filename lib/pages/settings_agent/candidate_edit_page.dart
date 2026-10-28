@@ -130,7 +130,10 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: Text(_isEdit ? '编辑候选模型' : '新增候选模型')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: Text(_isEdit ? '编辑候选模型' : '新增候选模型')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [

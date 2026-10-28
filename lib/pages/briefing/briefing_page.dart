@@ -399,7 +399,7 @@ class _BriefingPageState extends State<BriefingPage> {
             end: Alignment.bottomRight,
             colors: [
               cs.primary,
-              Color.alphaBlend(cs.tertiary.withAlpha(180), cs.primary),
+              Color.alphaBlend(const Color(0xFF8FB4DC).withAlpha(200), cs.primary),
             ],
           ),
           boxShadow: [

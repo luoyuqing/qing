@@ -90,7 +90,10 @@ class _DevicesPageState extends State<DevicesPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: qingPageBackground(context),
-      appBar: AppBar(title: const Text('已配对设备')),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('已配对设备')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading

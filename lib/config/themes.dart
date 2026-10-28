@@ -71,8 +71,15 @@ abstract class FluffyThemes {
     Color? seed,
   ]) {
     final stored = AppSettings.colorSchemeSeedInt.value;
-    final seedColor =
-        seed ?? Color(kLegacyPurpleSeeds.contains(stored) ? kDefaultSeedInt : stored);
+    // v1.20.1：seed 还可能来自 FluffyChat 原有的 primary_color 偏好键（设置配色时也会写）。
+    // 那个键没做过迁移，如果它是历史紫值，主题会一直是紫的——这里一并迁到晴空蓝。
+    final incoming = seed;
+    final effectiveSeed =
+        (incoming != null && kLegacyPurpleSeeds.contains(incoming.toARGB32()))
+            ? null
+            : incoming;
+    final seedColor = effectiveSeed ??
+        Color(kLegacyPurpleSeeds.contains(stored) ? kDefaultSeedInt : stored);
     var colorScheme = ColorScheme.fromSeed(
       brightness: brightness,
       seedColor: seedColor,
