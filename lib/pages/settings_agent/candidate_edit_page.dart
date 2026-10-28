@@ -1,3 +1,4 @@
+import 'package:fluffychat/pages/settings_agent/model_picker.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   bool _useNewEnv = false;
   bool _allScopes = true;
   bool _saving = false;
+  bool _fetching = false;
   List<Map<String, dynamic>> _creds = const [];
 
   bool get _isEdit => widget.existing != null;
@@ -66,6 +68,30 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
           .where((e) => '${e['name']}'.endsWith('_API_KEY') || '${e['name']}'.contains('KEY'))
           .toList());
     } catch (_) {}
+  }
+
+  Future<void> _pickModel() async {
+    final base = _baseUrl.text.trim();
+    if (!base.startsWith('http')) {
+      _toast('先把端点填好，再拉模型列表');
+      return;
+    }
+    setState(() => _fetching = true);
+    try {
+      final picked = await pickEndpointModel(
+        context,
+        baseUrl: base,
+        keyEnv: _keyEnv.text.trim(),
+        current: _model.text.trim(),
+      );
+      if (picked != null && mounted) {
+        setState(() => _model.text = picked);
+      }
+    } catch (e) {
+      _toast('拉取失败：$e');
+    } finally {
+      if (mounted) setState(() => _fetching = false);
+    }
   }
 
   Future<void> _save() async {
@@ -143,7 +169,31 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
               children: [
                 _field(theme, '标识（小写英文，如 mimo2）', _key, enabled: !_isEdit),
                 _field(theme, '显示名（如 MiMo 备用）', _label),
-                _field(theme, '模型 ID（如 mimo-v2.6-flash）', _model),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TextField(
+                    controller: _model,
+                    decoration: InputDecoration(
+                      labelText: '模型 ID（如 mimo-v2.6-flash）',
+                      isDense: true,
+                      suffixIcon: _fetching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              tooltip: '从端点拉取模型列表',
+                              onPressed: _pickModel,
+                              icon: const Icon(Icons.list_alt, size: 20),
+                            ),
+                    ),
+                  ),
+                ),
                 _field(theme, '端点（如 https://api.xiaomimimo.com/v1）', _baseUrl),
               ],
             ),

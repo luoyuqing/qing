@@ -715,6 +715,32 @@ class DeviceHubClient {
       _postJson('/agent/fallback', {'persona': persona, 'chain': chain},
           timeout: const Duration(seconds: 90));
 
+  /// 拉取某个端点的模型列表
+  static Future<Map<String, dynamic>> endpointModels({
+    required String baseUrl,
+    String keyEnv = '',
+  }) =>
+      getJson('/agent/endpoint/models', query: {
+        'base_url': baseUrl,
+        if (keyEnv.isNotEmpty) 'key_env': keyEnv,
+      });
+
+  /// 保存辅助模型（上下文压缩 / 图片理解…）
+  static Future<Map<String, dynamic>> saveAuxiliary({
+    required String persona,
+    required String key,
+    required String model,
+    required String baseUrl,
+    String keyEnv = '',
+  }) =>
+      _postJson('/agent/auxiliary', {
+        'persona': persona,
+        'key': key,
+        'model': model,
+        'base_url': baseUrl,
+        'key_env': keyEnv,
+      }, timeout: const Duration(seconds: 150));
+
   /// 凭据健康（只有变量名与来源，无值）
   static Future<List<Map<String, dynamic>>> credentials() async {
     final data = await getJson('/agent/credentials');

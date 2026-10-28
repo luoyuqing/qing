@@ -1,3 +1,4 @@
+import 'package:fluffychat/pages/settings_agent/auxiliary_edit_page.dart';
 import 'package:fluffychat/pages/settings_agent/candidate_edit_page.dart';
 import 'package:fluffychat/pages/settings_agent/fallback_edit_page.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
@@ -71,6 +72,12 @@ class _AgentModelPageState extends State<AgentModelPage> {
 
   List<Map<String, dynamic>> get _candidates =>
       (((_state?['candidates'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList());
+
+  List<Map<String, dynamic>> get _auxiliary =>
+      (((_state?['auxiliary'] as List?) ?? const [])
           .whereType<Map>()
           .map((e) => e.cast<String, dynamic>())
           .toList());
@@ -209,6 +216,18 @@ class _AgentModelPageState extends State<AgentModelPage> {
       _toast('备注已同步');
     } catch (e) {
       _toast('同步失败：$e');
+    }
+  }
+
+  Future<void> _editAuxiliary(Map<String, dynamic> item) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AuxiliaryEditPage(persona: _persona, item: item),
+      ),
+    );
+    if (changed == true) {
+      await _load();
+      _toast('已保存');
     }
   }
 
@@ -471,6 +490,72 @@ class _AgentModelPageState extends State<AgentModelPage> {
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const QingSectionTitle('辅助模型'),
+        QingCard(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+          child: Column(
+            children: [
+              if (_auxiliary.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text('没有配置辅助模型',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                )
+              else
+                for (var i = 0; i < _auxiliary.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: theme.colorScheme.outlineVariant
+                            .withValues(alpha: 0.6)),
+                  InkWell(
+                    onTap: _busy ? null : () => _editAuxiliary(_auxiliary[i]),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${_auxiliary[i]['label']}',
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text('${_auxiliary[i]['model']}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        fontSize: 11,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant)),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _auxiliary[i]['has_key'] == true
+                                  ? const Color(0xFF4E8A67)
+                                  : const Color(0xFFC05552),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.chevron_right,
+                              size: 16, color: theme.colorScheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
             ],
           ),
         ),
