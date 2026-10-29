@@ -42,7 +42,8 @@ abstract class AppConfig {
       'https://github.com/luoyuqing/qing';
   static const String supportUrl =
       'https://github.com/luoyuqing/qing/issues';
-  static const String changelogUrl = 'https://fluffychat.im/changelog/';
+  static const String changelogUrl =
+      'https://github.com/luoyuqing/qing/releases';
   static const String latestReleaseApiUrl =
       'https://api.github.com/repos/luoyuqing/qing/releases/latest';
   static const String helpUrl =

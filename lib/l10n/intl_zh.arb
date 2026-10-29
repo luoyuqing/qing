@@ -2506,7 +2506,7 @@
     "placeholders": {}
   },
   "hideRoomsInSpaces": "隐藏位于空间中的聊天室",
-  "possibleByYou": "Qing 基于开源项目构建，客户端代码同样开源。",
+  "possibleByYou": "Qing 基于开源项目 FluffyChat 构建，客户端代码同样开源。",
   "showThumbnailsInTimeline": "显示图片和视频的缩略图",
   "appSubtitle": "安全的 [matrix] 通信",
   "appDescription": "Qing · 个人 AI 助理客户端。简报、定时任务、记忆与模型，都在这一处。",

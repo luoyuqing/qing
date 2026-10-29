@@ -101,12 +101,27 @@ abstract class UpdateNotifier {
           barrierDismissible: true,
           context: context,
           builder: (context) => AlertDialog(
-            title: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 256),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppConfig.borderRadius / 2),
-                child: Image.asset('assets/logo/mini/banner.png'),
-              ),
+            title: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    AppConfig.borderRadius / 2,
+                  ),
+                  child: Image.asset(
+                    './assets/logo/mini/logo_mini.png',
+                    width: 44,
+                    height: 44,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Qing',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
             ),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 256),
@@ -127,27 +142,6 @@ abstract class UpdateNotifier {
               ),
             ),
             actions: [
-              AdaptiveDialogAction(
-                bigButtons: true,
-                targetPlatform: TargetPlatform.android,
-                onPressed: () => launchUrlString(AppConfig.helpUrl),
-                child: Row(
-                  mainAxisSize: .min,
-                  spacing: 4,
-                  children: [
-                    Icon(
-                      Icons.favorite,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    Text(
-                      l10n.support,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               AdaptiveDialogAction(
                 bigButtons: true,
                 targetPlatform: TargetPlatform.android,
