@@ -3,7 +3,7 @@
 
 import 'package:fluffychat/utils/app_update_service.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher_string.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 /// 检查更新对话框
 ///
