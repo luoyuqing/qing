@@ -31,6 +31,7 @@ class _AuxiliaryEditPageState extends State<AuxiliaryEditPage> {
   List<Map<String, dynamic>> _creds = const [];
   bool _saving = false;
   bool _fetching = false;
+  bool _allScopes = false;
 
   @override
   void initState() {
@@ -153,6 +154,7 @@ class _AuxiliaryEditPageState extends State<AuxiliaryEditPage> {
         model: model,
         baseUrl: base,
         keyEnv: _keyEnv.text.trim(),
+        scope: _allScopes ? 'all' : 'persona',
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -238,6 +240,48 @@ class _AuxiliaryEditPageState extends State<AuxiliaryEditPage> {
                     isDense: true,
                   ),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          QingCard(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('同步到全部人设',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text('开启后三个人设的${widget.item['label'] ?? widget.item['key']}都用这个模型',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _allScopes,
+                      onChanged: (v) => setState(() => _allScopes = v),
+                    ),
+                  ],
+                ),
+                if (_allScopes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '会覆盖另外两个人设当前的设置；凭据留空则各自保留原有的',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 10.5,
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ),
               ],
             ),
           ),

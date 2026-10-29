@@ -731,12 +731,15 @@ class DeviceHubClient {
       });
 
   /// 保存辅助模型（上下文压缩 / 图片理解…）
+  ///
+  /// [scope] 为 all 时写进全部人设（三个人设共用一个辅助模型）。
   static Future<Map<String, dynamic>> saveAuxiliary({
     required String persona,
     required String key,
     required String model,
     required String baseUrl,
     String keyEnv = '',
+    String scope = 'persona',
   }) =>
       _postJson('/agent/auxiliary', {
         'persona': persona,
@@ -744,7 +747,8 @@ class DeviceHubClient {
         'model': model,
         'base_url': baseUrl,
         'key_env': keyEnv,
-      }, timeout: const Duration(seconds: 150));
+        'scope': scope,
+      }, timeout: const Duration(seconds: 200));
 
   /// 凭据健康（只有变量名与来源，无值）
   static Future<List<Map<String, dynamic>>> credentials() async {
