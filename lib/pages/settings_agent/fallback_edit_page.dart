@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 备用链编辑
+/// Qing · 备用链编辑
 ///
 /// 主模型失败（超时/限流/连不上）时按这里的顺序降级。
 /// 保存是整链替换，服务端会先备份再校验。

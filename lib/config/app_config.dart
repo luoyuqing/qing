@@ -39,12 +39,12 @@ abstract class AppConfig {
       '4894dfda-c70a-4ebc-b139-acae55f3988d';
 
   static const String sourceCodeUrl =
-      'https://github.com/krille-chan/fluffychat';
+      'https://github.com/luoyuqing/qing';
   static const String supportUrl =
-      'https://github.com/krille-chan/fluffychat/issues';
+      'https://github.com/luoyuqing/qing/issues';
   static const String changelogUrl = 'https://fluffychat.im/changelog/';
   static const String latestReleaseApiUrl =
-      'https://api.github.com/repos/krille-chan/fluffychat/releases/latest';
+      'https://api.github.com/repos/luoyuqing/qing/releases/latest';
   static const String helpUrl =
       'https://ko-fi.com/post/How-can-I-support-FluffyChat-J2G325WE6I';
 
@@ -53,7 +53,7 @@ abstract class AppConfig {
   static final Uri newIssueUrl = Uri(
     scheme: 'https',
     host: 'github.com',
-    path: '/krille-chan/fluffychat/issues/new',
+    path: '/luoyuqing/qing/issues/new',
   );
 
   static final Uri homeserverList = Uri(

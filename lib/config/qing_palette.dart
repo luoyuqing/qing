@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 淡雅主题色板
+/// Qing · 淡雅主题色板
 ///
 /// 设置 → 主题 → 配色用。全部是低饱和度莫兰迪色，
 /// Material 3 的 fromSeed 派生出来的浅色档都很素净，不会出现大红大紫。

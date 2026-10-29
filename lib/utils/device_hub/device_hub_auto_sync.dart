@@ -1,6 +1,6 @@
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 
-/// 清助理 · 自动同步
+/// Qing · 自动同步
 ///
 /// 应用进入聊天列表时触发；距上次同步不足 30 分钟则跳过。
 /// 失败静默（不打扰聊天），下次打开再试。

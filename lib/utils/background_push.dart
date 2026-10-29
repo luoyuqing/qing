@@ -264,7 +264,7 @@ class BackgroundPush {
   static bool _wentToRoomOnStartup = false;
 
   Future<void> setupPush(BuildContext context) async {
-    // Qchat：改用纯客户端方案（/sync 长轮询 + 本地通知），
+    // Qing：改用纯客户端方案（/sync 长轮询 + 本地通知），
     // 不再向服务器注册 FCM / UnifiedPush / ntfy 之类 pusher。
     Logs().i('[Push] Local sync mode: skipping server pusher registration');
     openRoomFromNotification();

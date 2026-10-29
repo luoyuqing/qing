@@ -786,7 +786,7 @@
     "type": "String",
     "placeholders": {}
   },
-  "inviteText": "{username} 邀请你使用 Qchat。 \n1. 安装 Qchat（从发布页下载安装包） \n2. 注册或登录 \n3. 打开邀请链接：\n {link}",
+  "inviteText": "{username} 邀请你使用 Qing。 \n1. 安装 Qing（从发布页下载安装包） \n2. 注册或登录 \n3. 打开邀请链接：\n {link}",
   "@inviteText": {
     "type": "String",
     "placeholders": {
@@ -933,8 +933,8 @@
     "type": "String",
     "placeholders": {}
   },
-  "newMessageInQchat": "💬 Qchat 新消息",
-  "@newMessageInQchat": {
+  "newMessageInQing": "💬 Qing 新消息",
+  "@newMessageInQing": {
     "type": "String",
     "placeholders": {}
   },
@@ -968,7 +968,7 @@
     "type": "String",
     "placeholders": {}
   },
-  "noGoogleServicesWarning": "看起来你手机上没有 Firebase Cloud Messaging。如果仍希望接收 Qchat 的推送通知，推荐安装 ntfy。借助 ntfy 或另一个 Unified Push 程序，你可以以一种数据安全的方式接收推送通知。你可以从 PlayStore 或 F-Droid 商店下载 ntfy。",
+  "noGoogleServicesWarning": "看起来你手机上没有 Firebase Cloud Messaging。如果仍希望接收 Qing 的推送通知，推荐安装 ntfy。借助 ntfy 或另一个 Unified Push 程序，你可以以一种数据安全的方式接收推送通知。你可以从 PlayStore 或 F-Droid 商店下载 ntfy。",
   "@noGoogleServicesWarning": {
     "type": "String",
     "placeholders": {}
@@ -2102,7 +2102,7 @@
       }
     }
   },
-  "appLockDescription": "用 pin 码在不用 Qchat 时锁定它",
+  "appLockDescription": "用 pin 码在不用 Qing 时锁定它",
   "globalChatId": "全局聊天 ID",
   "accessAndVisibility": "访问和可见性",
   "accessAndVisibilityDescription": "谁可以加入此聊天以及怎样发现该聊天。",
@@ -2471,7 +2471,7 @@
   "advancedConfigurations": "高级配置",
   "signIn": "登录",
   "createNewAccount": "创建新账户",
-  "signUpGreeting": "Qchat 是去中心化的！选择您希望创建账户的服务器！",
+  "signUpGreeting": "Qing 运行在去中心化的 Matrix 网络上，请选择要注册的服务器。",
   "signInGreeting": "已经有 Matrix 账户了？欢迎回来！选择 homeserver 登录。",
   "theProcessWasCanceled": "过程被取消。",
   "join": "加入",
@@ -2491,7 +2491,7 @@
   },
   "createNewChat": "新建聊天",
   "reset": "重置",
-  "supportQchat": "支持 Qchat",
+  "supportQing": "支持 Qing",
   "support": "支持",
   "setLowPriority": "设置低优先级",
   "unsetLowPriority": "取消设置低优先级",
@@ -2506,10 +2506,10 @@
     "placeholders": {}
   },
   "hideRoomsInSpaces": "隐藏位于空间中的聊天室",
-  "possibleByYou": "没有您的支持不会有这个版本。Qchat 依旧免费、开源、完全由社区驱动。",
+  "possibleByYou": "Qing 基于开源项目构建，客户端代码同样开源。",
   "showThumbnailsInTimeline": "显示图片和视频的缩略图",
   "appSubtitle": "安全的 [matrix] 通信",
-  "appDescription": "以对所有人简单易得的方式通过去中心化 [matrix] 网络加密通信。",
+  "appDescription": "Qing · 个人 AI 助理客户端。简报、定时任务、记忆与模型，都在这一处。",
   "interactiveVerification": "互动式验证",
   "interactiveVerificationDescription": "如果你和联系人就在一起或通过安全渠道通信，你们可以通过比较安全号码或绘文字同时验证所有设备。",
   "countUnverifiedDevices": "该聊天中有 {count} 台未验证设备。",
@@ -2590,7 +2590,7 @@
     "type": "String",
     "placeholders": {}
   },
-  "newPassphraseDescription": "Qchat 使用端到端加密。为了不丢失消息，请选择强密码短语来保护加密身份和加密的消息备份。",
+  "newPassphraseDescription": "Qing 使用端到端加密。为了不丢失消息，请选择强密码短语来保护加密身份和加密的消息备份。",
   "@newPassphraseDescription": {
     "type": "String",
     "placeholders": {}
@@ -2866,14 +2866,14 @@
   },
   "backgroundSyncKeepAlive": "后台消息同步",
   "@backgroundSyncKeepAlive": {},
-  "backgroundSyncKeepAliveDescription": "不依赖 Google 服务或 ntfy，同样省电的本地推送机制：有新消息时服务器立即唤醒 Qchat，否则每 20 秒检查一次。国产系统请关闭电池优化，并允许 Qchat 自启动和后台运行，否则系统可能在后台杀掉 Qchat。",
+  "backgroundSyncKeepAliveDescription": "不依赖 Google 服务或 ntfy，同样省电的本地推送机制：有新消息时服务器立即唤醒 Qing，否则每 20 秒检查一次。国产系统请关闭电池优化，并允许 Qing 自启动和后台运行，否则系统可能在后台杀掉 Qing。",
   "@backgroundSyncKeepAliveDescription": {},
   "disableBatteryOptimization": "关闭电池优化",
   "@disableBatteryOptimization": {},
-  "disableBatteryOptimizationDescription": "防止系统在后台冻结或杀掉 Qchat，导致收不到新消息。",
+  "disableBatteryOptimizationDescription": "防止系统在后台冻结或杀掉 Qing，导致收不到新消息。",
   "@disableBatteryOptimizationDescription": {},
   "openAutostartSettings": "打开自启动设置",
   "@openAutostartSettings": {},
-  "openAutostartSettingsDescription": "在小米、华为、OPPO、vivo、一加等手机上，需要允许 Qchat 的自启动和后台运行权限。",
+  "openAutostartSettingsDescription": "在小米、华为、OPPO、vivo、一加等手机上，需要允许 Qing 的自启动和后台运行权限。",
   "@openAutostartSettingsDescription": {}
 }

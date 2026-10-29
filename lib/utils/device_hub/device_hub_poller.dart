@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 
-/// 清助理 · 按需取数应答器
+/// Qing · 按需取数应答器
 ///
 /// 架构：**AI 需要数据时才向手机要**（不是手机主动上传）。
 /// 手机在前台/后台存活期间长轮询 `/device/poll`，收到命令后现场读取并回传。
@@ -69,7 +69,7 @@ class DeviceHubPoller {
           await DeviceHubClient.respondDevice(id, ok: true, data: {'items': items});
           break;
         case 'sms':
-          // 清助理 v1.9.0：短信现场读取（只读）
+          // Qing v1.9.0：短信现场读取（只读）
           final items = await DeviceDataBridge.sms(
             limit: (params['limit'] as num?)?.toInt() ?? 50,
             query: '${params['query'] ?? ''}',

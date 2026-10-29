@@ -11,7 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:matrix/matrix.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Qchat的「纯客户端推送」控制器。
+/// Qing的「纯客户端推送」控制器。
 ///
 /// 方案：不注册 FCM / ntfy 之类服务器推送，而是
 ///  - Matrix SDK 的 `/sync` 长轮询常驻（backgroundSync 保持 true）

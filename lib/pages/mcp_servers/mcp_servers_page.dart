@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 连接应用（MCP）
+/// Qing · 连接应用（MCP）
 ///
 /// 所有 MCP 连接都由 X2 的 device-hub 代理：凭据只存在服务器，手机不直连第三方。
 /// 页面负责：添加服务器 / 刷新工具 / 按 schema 填参数调用。

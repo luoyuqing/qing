@@ -2855,14 +2855,14 @@
   },
   "backgroundSyncKeepAlive": "Background message sync",
   "@backgroundSyncKeepAlive": {},
-  "backgroundSyncKeepAliveDescription": "Keeps a local sync connection alive, so you get notifications without Google services or ntfy. On Chinese Android ROMs please disable battery optimization and allow Qchat to autostart and run in background, otherwise the system may kill Qchat.",
+  "backgroundSyncKeepAliveDescription": "Keeps a local sync connection alive, so you get notifications without Google services or ntfy. On Chinese Android ROMs please disable battery optimization and allow Qing to autostart and run in background, otherwise the system may kill Qing.",
   "@backgroundSyncKeepAliveDescription": {},
   "disableBatteryOptimization": "Disable battery optimization",
   "@disableBatteryOptimization": {},
-  "disableBatteryOptimizationDescription": "Prevents the system from freezing or killing Qchat in background, which would stop new messages from arriving.",
+  "disableBatteryOptimizationDescription": "Prevents the system from freezing or killing Qing in background, which would stop new messages from arriving.",
   "@disableBatteryOptimizationDescription": {},
   "openAutostartSettings": "Open autostart settings",
   "@openAutostartSettings": {},
-  "openAutostartSettingsDescription": "On Xiaomi, Huawei, OPPO, vivo and OnePlus devices you need to allow Qchat to autostart and run in background.",
+  "openAutostartSettingsDescription": "On Xiaomi, Huawei, OPPO, vivo and OnePlus devices you need to allow Qing to autostart and run in background.",
   "@openAutostartSettingsDescription": {}
 }

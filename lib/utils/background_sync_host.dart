@@ -8,7 +8,7 @@ import 'package:matrix/matrix_api_lite/utils/logs.dart';
 
 /// Android 原生「后台消息同步」前台服务（dataSync）的桥。
 ///
-/// Qchat不依赖 Firebase / ntfy：Dart 侧用 `/sync` 长轮询收消息，原生服务只
+/// Qing不依赖 Firebase / ntfy：Dart 侧用 `/sync` 长轮询收消息，原生服务只
 /// 负责让进程活着、被系统杀掉后自愈、开机自启。
 class BackgroundSyncHost {
   static const MethodChannel _channel = MethodChannel(

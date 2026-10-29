@@ -13,7 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 清助理 · 任务（办公小爱）
+/// Qing · 任务（办公小爱）
 ///
 /// 顶部三个 Tab：
 ///  ① 最近会话 —— 最近 30 段真实聊天，点开可读记录、能一键切回对应房间

@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 用量统计
+/// Qing · 用量统计
 ///
 /// 数据来自 X2 上 hermes 的 state.db（session_model_usage），
 /// 按模型/人设聚合，成本是官方单价估算值。

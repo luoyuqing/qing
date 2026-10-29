@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 底部导航（五 Tab）
+/// Qing · 底部导航（五 Tab）
 ///
 /// 聊天 / 简报 / 任务 / 记忆 / 设置。
 /// 页面之间用 go_router 切换；当前页高亮由 currentIndex 决定。

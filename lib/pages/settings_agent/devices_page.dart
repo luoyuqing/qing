@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 已配对设备
+/// Qing · 已配对设备
 ///
 /// 每台手机一个 token；丢了或换机就在这里吊销。
 class DevicesPage extends StatefulWidget {

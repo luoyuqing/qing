@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// 清助理 · 设备数据桥（Android 原生只读采集）
+/// Qing · 设备数据桥（Android 原生只读采集）
 class DevicePermissionStatus {
   final bool notification;
   final bool calendar;
@@ -10,7 +10,7 @@ class DevicePermissionStatus {
   final bool files;
   final bool allFiles;
 
-  /// 清助理 v1.9.0：短信读取（READ_SMS，只读）
+  /// Qing v1.9.0：短信读取（READ_SMS，只读）
   final bool sms;
   final String model;
   final String androidVersion;

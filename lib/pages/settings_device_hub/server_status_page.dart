@@ -51,7 +51,7 @@ ThemeData _fixedServerTheme(BuildContext context) {
   );
 }
 
-/// 清助理 · X2 服务器状态页
+/// Qing · X2 服务器状态页
 ///
 /// 数据全部来自 device-hub 的 /server/status（服务端直读 /proc 与 cgroup v2），
 /// 手机只负责展示，不缓存任何历史。

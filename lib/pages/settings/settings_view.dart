@@ -9,6 +9,7 @@ import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
 import 'package:fluffychat/pages/settings_agent/usage_page.dart';
+import 'package:fluffychat/utils/app_update_service.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
 import 'package:fluffychat/widgets/avatar.dart';
@@ -23,6 +24,60 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../widgets/mxc_image_viewer.dart';
 import '../../widgets/qing_bottom_nav.dart';
 import 'settings.dart';
+
+/// 「关于」入口：发现新版本时在标题右侧显示小红点。
+///
+/// 检查更新发生在启动时（静默）或对话框内（手动），这里只负责读结果；
+/// 从对话框返回后重新读一次，红点能立即反映最新状态。
+class _AboutTile extends StatefulWidget {
+  const _AboutTile({required this.onOpen});
+
+  final Future<void> Function() onOpen;
+
+  @override
+  State<_AboutTile> createState() => _AboutTileState();
+}
+
+class _AboutTileState extends State<_AboutTile> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUpdate = AppUpdateService.hasUpdate;
+    final version = AppUpdateService.availableVersion;
+    return ListTile(
+      leading: const Icon(Icons.info_outline_rounded),
+      title: Row(
+        children: [
+          Text(L10n.of(context).about),
+          if (hasUpdate) ...[
+            const SizedBox(width: 8),
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFC05552),
+              ),
+            ),
+          ],
+        ],
+      ),
+      subtitle: hasUpdate
+          ? Text(
+              '有新版本 $version',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                color: const Color(0xFFC05552),
+              ),
+            )
+          : null,
+      onTap: () async {
+        await widget.onOpen();
+        if (mounted) setState(() {});
+      },
+    );
+  }
+}
 
 class SettingsView extends StatelessWidget {
   final SettingsController controller;
@@ -218,7 +273,7 @@ class SettingsView extends StatelessWidget {
             ),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 18, 16, 6),
-              child: QingSectionTitle('清助理'),
+              child: QingSectionTitle('Qing'),
             ),
             ListTile(
               leading: const Icon(Icons.memory_outlined),
@@ -313,10 +368,8 @@ class SettingsView extends StatelessWidget {
               title: Text(L10n.of(context).privacy),
               onTap: () => launchUrlString(AppSettings.privacyPolicy.value),
             ),
-            ListTile(
-              leading: const Icon(Icons.info_outline_rounded),
-              title: Text(L10n.of(context).about),
-              onTap: () => PlatformInfos.showDialog(context),
+            _AboutTile(
+              onOpen: () => PlatformInfos.showDialog(context),
             ),
             Divider(color: theme.dividerColor),
             ListTile(

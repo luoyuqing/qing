@@ -14,6 +14,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../config/app_config.dart';
+import '../pages/settings_agent/update_dialog.dart';
+import 'app_update_service.dart';
 
 abstract class PlatformInfos {
   static bool get isWeb => kIsWeb;
@@ -90,6 +92,27 @@ abstract class PlatformInfos {
               },
               icon: const Icon(Icons.settings_applications_outlined),
               label: Text(l10n.advancedConfigs),
+            );
+          },
+        ),
+        Builder(
+          builder: (innerContext) {
+            final hasUpdate = AppUpdateService.hasUpdate;
+            final version = AppUpdateService.availableVersion;
+            return TextButton.icon(
+              onPressed: () {
+                Navigator.of(innerContext).pop();
+                showUpdateDialog(context);
+              },
+              icon: Icon(
+                Icons.system_update_alt_rounded,
+                color: hasUpdate
+                    ? Theme.of(innerContext).colorScheme.primary
+                    : null,
+              ),
+              label: Text(
+                hasUpdate ? '检查更新（发现 v$version）' : '检查更新',
+              ),
             );
           },
         ),

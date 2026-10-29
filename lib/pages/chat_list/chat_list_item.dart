@@ -67,7 +67,7 @@ class ChatListItem extends StatelessWidget {
     final space = this.space;
 
     return Padding(
-      // 清助理：会话改成卡片式（白底 + 细描边 + 22 圆角）
+      // Qing：会话改成卡片式（白底 + 细描边 + 22 圆角）
       padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
       child: Material(
         shape: RoundedRectangleBorder(

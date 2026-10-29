@@ -3,7 +3,7 @@ import 'package:fluffychat/widgets/markdown_view.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 记忆库
+/// Qing · 记忆库
 ///
 /// 读的是 X2 上 zvec-memory 的 facts 目录（按人设分开存）。
 /// 每条是一个 Markdown 文件，可搜索、可看全文。

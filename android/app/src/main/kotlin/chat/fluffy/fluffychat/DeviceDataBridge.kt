@@ -28,7 +28,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 清助理 · 设备数据桥
+ * Qing · 设备数据桥
  *
  * 只读采集：通知（通知监听服务缓存）、日历、通讯录、应用使用时长。
  * 全部在本机读取，交给 Dart 侧上传到用户自己的 device-hub。
@@ -134,7 +134,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         }
         val calendar = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
         val contacts = c != null && ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
-        // 清助理 v1.9.0：短信只读（READ_SMS），不申请 SEND_SMS / RECEIVE_SMS
+        // Qing v1.9.0：短信只读（READ_SMS），不申请 SEND_SMS / RECEIVE_SMS
         val sms = hasSmsAccess(c)
         val usage = hasUsageAccess(c)
         val location = c != null && (ContextCompat.checkSelfPermission(c, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -244,7 +244,7 @@ object DeviceDataBridge : MethodChannel.MethodCallHandler {
         ActivityCompat.requestPermissions(activity, missing.toTypedArray(), REQ_PERMS)
     }
 
-    /** 清助理 v1.9.0：短信只读授权（只要 READ_SMS） */
+    /** Qing v1.9.0：短信只读授权（只要 READ_SMS） */
     private fun requestSms(result: MethodChannel.Result) {
         requestPermission(arrayOf(Manifest.permission.READ_SMS), result)
     }

@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: 2026 清助理
+// SPDX-FileCopyrightText: 2026 Qing
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// 清助理 · 执行计划（cron）解析与生成
+/// Qing · 执行计划（cron）解析与生成
 ///
 /// 只做两件事：
 ///  1. 把 cron 转成人话 —— 简报页标题、任务卡片、编辑器预览都用它；

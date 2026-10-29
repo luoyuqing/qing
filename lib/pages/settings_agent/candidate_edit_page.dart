@@ -3,7 +3,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 新增 / 编辑候选模型
+/// Qing · 新增 / 编辑候选模型
 ///
 /// 候选池同时是「端点 + 凭据」的注册表：切模型时运行时靠它找回 key。
 class CandidateEditPage extends StatefulWidget {

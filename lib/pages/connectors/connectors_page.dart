@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 连接应用
+/// Qing · 连接应用
 ///
 /// 目录来自 hub `/catalog`：官方 MCP（高德/飞书/GitHub/WPS/DeepWiki）
 /// + 内置连接器（知乎/B站/快递/QQ邮箱/钉钉，由服务器直接实现，无需部署）。

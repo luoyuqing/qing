@@ -95,7 +95,7 @@ class ChatListView extends StatelessWidget {
                     child: ChatListViewBody(controller),
                   ),
                 ),
-                // 新建聊天已移到右上角头像菜单（清助理）
+                // 新建聊天已移到右上角头像菜单（Qing）
               ),
             ),
           ),

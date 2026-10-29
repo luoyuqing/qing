@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 设备数据设置页
+/// Qing · 设备数据设置页
 ///
 /// 用户在这里：填服务器地址 → 输入配对码 → 逐项授权 → 手动/自动同步。
 /// 所有开关都由系统权限决定，App 不绕过任何授权。

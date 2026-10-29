@@ -13,12 +13,12 @@ import 'package:matrix/matrix.dart';
 
 import '../l10n/l10n.dart';
 
-/// Qchat：detached（无 GUI）引擎里的本地通知。
+/// Qing：detached（无 GUI）引擎里的本地通知。
 ///
 /// 后台服务（dataSync）拉起的引擎没有 GUI，也就没有 MatrixState，
 /// 上游的通知订阅（MatrixState._registerSubs）不存在。上游 main.dart 的
 /// detached 分支原本为 FCM 推送设计：backgroundSync=false、干等推送。
-/// Qchat 是纯客户端方案，/sync 长轮询本身就是推送，所以这个引擎必须
+/// Qing 是纯客户端方案，/sync 长轮询本身就是推送，所以这个引擎必须
 /// 持续同步，并且自己订阅 onNotification 弹本地通知。
 StreamSubscription? _headlessOnSyncSub;
 StreamSubscription? _headlessNotificationSub;

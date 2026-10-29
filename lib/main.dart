@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:fluffychat/config/app_config.dart';
 import 'package:fluffychat/pages/boot/qing_boot_gate.dart';
+import 'package:fluffychat/utils/app_update_service.dart';
 import 'package:fluffychat/utils/background_push.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_poller.dart';
 import 'package:fluffychat/utils/error_reporter.dart';
@@ -29,7 +30,7 @@ ReceivePort? mainIsolateReceivePort;
 
 bool isIntegrationTest = false;
 
-/// 清助理启动流程（v1.9.0 重构）
+/// Qing启动流程（v1.9.0 重构）
 ///
 /// ## 改动要点
 ///
@@ -90,7 +91,7 @@ void main(List<String> args) => runZonedGuarded(() async {
   final backgroundMode =
       PlatformInfos.isAndroid && AppLifecycleState.detached == lifecycle;
 
-  // ── 清助理 v1.9.6 关键修复：不再用 detached 决定「要不要画界面」 ──
+  // ── Qing v1.9.6 关键修复：不再用 detached 决定「要不要画界面」 ──
   //
   // Android 上（尤其装完包第一次启动）Activity 还没 attach 时，
   // lifecycleState 会先报 detached。旧逻辑据此判定"后台引擎"→ 不调 runApp
@@ -109,7 +110,7 @@ void main(List<String> args) => runZonedGuarded(() async {
     (_) => QingBoot.markFirstFrame(),
   );
 
-  // 清助理：长轮询要尽早起来，AI 随时可能来要数据。
+  // Qing：长轮询要尽早起来，AI 随时可能来要数据。
   // 只依赖 SharedPreferences，不依赖 Matrix 初始化。
   DeviceHubPoller.start();
 
@@ -121,7 +122,7 @@ void main(List<String> args) => runZonedGuarded(() async {
     // 后台引擎（开机自启 / 前台服务拉起）：初始化照常走，另外把常驻同步架起来
     await QingBoot.run();
 
-    // Qchat：纯客户端方案没有服务器推送器（FCM/UnifiedPush 都不用），
+    // Qing：纯客户端方案没有服务器推送器（FCM/UnifiedPush 都不用），
     // /sync 长轮询本身就是推送。detached 引擎必须保持持续同步，不能像上游
     // FCM 方案那样停掉 sync 干等推送 —— 否则服务活着但永远收不到消息。
     for (final client in QingBoot.clients) {
@@ -143,6 +144,9 @@ void main(List<String> args) => runZonedGuarded(() async {
     );
     return;
   }
+
+  // Qing：更新检查全程后台，5 秒超时、失败静默，绝不参与启动关键路径
+  unawaited(AppUpdateService.checkSilently());
 
   await QingBoot.run();
 

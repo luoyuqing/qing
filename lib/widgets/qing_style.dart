@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 统一视觉规范
+/// Qing · 统一视觉规范
 ///
 /// 参照 today.ai 的 Today 页：大留白、柔和底色、白卡片 + 细描边、
 /// 渐变 Hero、圆角胶囊。五个 Tab 共用这里的组件，保证风格一致。

@@ -9,7 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 清助理 · 聊天气泡专属配色
+/// Qing · 聊天气泡专属配色
 ///
 /// ## 与全局主题色的关系（重要）
 ///

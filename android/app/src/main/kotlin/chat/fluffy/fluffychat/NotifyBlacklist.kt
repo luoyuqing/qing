@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 
 /**
- * 清助理 · 通知黑名单
+ * Qing · 通知黑名单
  *
  * 用户在「设置 → 设备数据 → 数据授权 → 通知 → 通知黑名单」里勾掉的应用，
  * **在通知监听服务里就直接丢掉**：既不写入本地缓存，也不会被上报给服务器。

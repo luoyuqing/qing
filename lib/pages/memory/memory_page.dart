@@ -5,7 +5,7 @@ import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 记忆
+/// Qing · 记忆
 ///
 /// 四个 Tab：记忆（MEMORY.md） / 画像（USER.md） / 技能（skills/*） / 人设（config.yaml 里的设定）
 /// 顶部可切换人设，覆盖 default（办公小爱）、intimate、tavern 等所有 profile。

@@ -108,7 +108,7 @@ class Message extends StatelessWidget {
     final ownMessage = event.senderId == client.userID;
     final alignment = ownMessage ? Alignment.topRight : Alignment.topLeft;
 
-    // 清助理 v1.8.0：聊天气泡配色独立于全局主色。
+    // Qing v1.8.0：聊天气泡配色独立于全局主色。
     // 对方气泡 = 纯白；我方气泡 = 聊天主题色兑白 30%（默认晴空蓝 → #CEDBED）。
     // 全局主色（colorSchemeSeed）保持 v1.7.1 原样，不影响其他页面。
     final chatTheme = context.qingChatTheme;
@@ -134,7 +134,7 @@ class Message extends StatelessWidget {
         previousEvent!.senderId == event.senderId &&
         previousEvent!.originServerTs.sameEnvironment(event.originServerTs);
 
-    // 清助理 v1.8.0：气泡文字固定深色（两侧共用），
+    // Qing v1.8.0：气泡文字固定深色（两侧共用），
     // 保证任意聊天主题色下对比度都 ≥ 10:1。
     final textColor = QingChatTheme.bubbleText;
 
@@ -149,7 +149,7 @@ class Message extends StatelessWidget {
         : MainAxisAlignment.start;
 
     final displayEvent = event.getDisplayEvent(timeline);
-    // 清助理：纯色气泡，圆角柔和（尾巴角 7，不扎眼）
+    // Qing：纯色气泡，圆角柔和（尾巴角 7，不扎眼）
     const hardCorner = Radius.circular(7);
     const roundedCorner = Radius.circular(AppConfig.borderRadius);
     final borderRadius = BorderRadius.only(
@@ -476,7 +476,7 @@ class Message extends StatelessWidget {
                                     clipBehavior: Clip.antiAlias,
                                     child: BubbleBackground(
                                       colors: colors,
-                                      // 清助理：纯色气泡，不叠任何渐变
+                                      // Qing：纯色气泡，不叠任何渐变
                                       ignore: true,
                                       scrollController: scrollController,
                                       child: Container(

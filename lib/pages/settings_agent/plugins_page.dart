@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 插件与能力
+/// Qing · 插件与能力
 ///
 /// 只读展示：X2 上 hermes 已安装的插件与内置能力。
 class PluginsPage extends StatefulWidget {

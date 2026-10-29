@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'device_data_bridge.dart';
 
-/// 清助理 · device-hub 客户端
+/// Qing · device-hub 客户端
 ///
 /// 只跟自己的服务器通信：内网直连 `http://192.168.1.10:8787`（可改）。
 /// token 存 Android Keystore（flutter_secure_storage），不落日志。
@@ -257,7 +257,7 @@ class DeviceHubClient {
         'notifications', notifications.map((e) => e.toJson()).toList());
     report.add('通知 ${n1['stored'] ?? 0} 条');
 
-    // 清助理 v1.9.0：短信（只读）。未授权时原生侧返回空列表，这里自然跳过。
+    // Qing v1.9.0：短信（只读）。未授权时原生侧返回空列表，这里自然跳过。
     final smsList = await DeviceDataBridge.sms(limit: 200);
     final nSms =
         await _ingest('sms', smsList.map((e) => e.toJson()).toList());
@@ -749,6 +749,9 @@ class DeviceHubClient {
         'key_env': keyEnv,
         'scope': scope,
       }, timeout: const Duration(seconds: 200));
+
+  /// 查最新发布：经 hub 代理 GitHub（手机常常连不上 api.github.com）
+  static Future<Map<String, dynamic>> appRelease() => getJson('/app/release');
 
   /// 凭据健康（只有变量名与来源，无值）
   static Future<List<Map<String, dynamic>>> credentials() async {

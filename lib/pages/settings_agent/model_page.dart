@@ -5,7 +5,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 模型与推理
+/// Qing · 模型与推理
 ///
 /// 三个人设各自独立配置模型（config.yaml 里 model / model_candidates /
 /// fallback_providers 三块）。这里能看、能切、能增删改候选、能编辑备用链。

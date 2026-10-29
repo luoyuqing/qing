@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 数据与隐私
+/// Qing · 数据与隐私
 ///
 /// 控制 device-hub 上各类数据的保留天数：到期自动清理，随时可改。
 class RetentionPage extends StatefulWidget {

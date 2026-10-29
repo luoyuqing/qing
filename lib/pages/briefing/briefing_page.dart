@@ -5,7 +5,7 @@ import 'package:fluffychat/utils/qing_schedule.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 清助理 · 简报（仅办公小爱）
+/// Qing · 简报（仅办公小爱）
 ///
 /// 一天两份：
 ///   晨报 —— 早上（时间取「早间简报」定时任务的实际配置）

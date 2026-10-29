@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 查询审计
+/// Qing · 查询审计
 ///
 /// 小爱每查一次数据、改一次人设都会在 hub 落一条审计（只有动作，不含内容）。
 /// 这一页就是「我的数据被谁动过」的流水账。

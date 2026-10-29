@@ -8,7 +8,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 清助理 · 通知监听服务
+ * Qing · 通知监听服务
  *
  * 系统把通知推给我们，我们只在本地保留最近 300 条（供用户主动同步时上传到自己的 hub）。
  * 不联网、不判定内容、过滤掉本应用自己的通知。

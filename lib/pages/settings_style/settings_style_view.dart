@@ -74,7 +74,7 @@ class SettingsStyleView extends StatelessWidget {
               ),
             ),
             Divider(color: theme.dividerColor),
-            // 清助理 v1.8.0：聊天气泡配色（独立于下方全局配色）
+            // Qing v1.8.0：聊天气泡配色（独立于下方全局配色）
             ListTile(
               title: Row(
                 children: [
@@ -190,7 +190,7 @@ class SettingsStyleView extends StatelessWidget {
                     Theme.of(context).brightness == Brightness.light
                     ? light?.primary
                     : dark?.primary;
-                // 清助理：淡雅低饱和色板（替代 Flutter 自带的高饱和 Colors.primaries）
+                // Qing：淡雅低饱和色板（替代 Flutter 自带的高饱和 Colors.primaries）
                 final options = <_ColorOption>[
                   if (systemColor != null)
                     _ColorOption(null, L10n.of(context).systemTheme),

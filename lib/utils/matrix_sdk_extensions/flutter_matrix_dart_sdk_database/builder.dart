@@ -41,7 +41,7 @@ Future<DatabaseApi> flutterMatrixSdkDatabaseBuilder(String clientName) async {
       Logs().e('Unable to send error notification', e, s);
     }
 
-    // 清助理 v1.9.0：**不再直接删除数据库**
+    // Qing v1.9.0：**不再直接删除数据库**
     //
     // 旧实现在这里 `delete()`，一旦是「密钥读不到 / 迁移中途失败」这类
     // 可恢复问题，就会把用户全部本地历史（含加密账号）静默销毁，随后
@@ -163,7 +163,7 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
     database = await factory.openDatabase(path, options: openDatabaseOptions);
   } catch (e, s) {
     Logs().wtf('Unable to open database! Quarantine file and try again...', e, s);
-    // 清助理 v1.9.0：留档而非删除，避免把用户历史静默销毁
+    // Qing v1.9.0：留档而非删除，避免把用户历史静默销毁
     await _quarantineDatabase(path, 'corrupt');
     database = await openDatabase(path, options: openDatabaseOptions);
   }
@@ -230,7 +230,7 @@ Future<void> _migrateLegacyLocation(
   final maybeOldFile = File(oldFilePath);
   if (!await maybeOldFile.exists()) return;
 
-  // 清助理 v1.9.0：目标库已存在 → 之前早就迁移过了，旧文件只是残留。
+  // Qing v1.9.0：目标库已存在 → 之前早就迁移过了，旧文件只是残留。
   // 旧实现不管目标是否存在都会 `copy + delete`，一旦 delete 失败（权限、
   // 文件被占用），**每次冷启动都要整库复制一遍**，大库上这是几秒级阻塞。
   final target = File(sqlFilePath);

@@ -2,7 +2,7 @@ import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 
-/// 清助理 · 编辑辅助模型
+/// Qing · 编辑辅助模型
 ///
 /// 对应 config.yaml 的 `auxiliary.<key>`：上下文压缩、图片理解等不直接参与聊天、
 /// 但会消耗额度的后台任务。改完下一轮生效。

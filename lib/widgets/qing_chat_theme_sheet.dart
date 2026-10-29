@@ -8,7 +8,7 @@ import 'package:fluffychat/utils/color_value.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
-/// 清助理 · 聊天气泡配色选择器
+/// Qing · 聊天气泡配色选择器
 ///
 /// ## 与全局主题色的边界（v1.8.0）
 ///

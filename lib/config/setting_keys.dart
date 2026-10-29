@@ -52,7 +52,7 @@ enum AppSettings<T> {
   ),
   displayChatDetailsColumn('chat.fluffy.display_chat_details_column', false),
   // AppConfig-mirrored settings
-  applicationName<String>('chat.fluffy.application_name', '清助理'),
+  applicationName<String>('chat.fluffy.application_name', 'Qing'),
   defaultHomeserver<String>('chat.fluffy.default_homeserver', 'matrix.org'),
   // colorSchemeSeed stored as ARGB int
   //
@@ -61,13 +61,13 @@ enum AppSettings<T> {
   // v1.10.2~1.10.3 是天空蓝 #2196F3，v1.10.1 及以前是紫 0xFF5625BA。
   // 设备里存的若是历次默认值或任一紫色，themes.dart 会当作「没改过」并跟随新默认蓝。
   colorSchemeSeedInt<int>('chat.fluffy.color_scheme_seed', 0xFF5B87C4),
-  // 清助理 v1.8.0 · 聊天气泡主题色（独立于全局主色）
+  // Qing v1.8.0 · 聊天气泡主题色（独立于全局主色）
   //
   // 只影响聊天气泡底色，不影响任何其他页面。
   // 默认值 = 晴空蓝 #5B87C4（用户指定），与 qing_chat_theme.dart 的
   // QingChatTheme.defaultAccent 必须一致。
   chatAccentInt<int>('chat.fluffy.chat_accent', 0xFF5B87C4),
-  // 清助理 v1.9.0 · 上次启动各阶段耗时（JSON），用于设置页展示与排查
+  // Qing v1.9.0 · 上次启动各阶段耗时（JSON），用于设置页展示与排查
   qingBootTimings<String>('chat.fluffy.qing_boot_timings', ''),
   emojiSuggestionLocale<String>('emoji_suggestion_locale', ''),
   enableSoftLogout<bool>('chat.fluffy.enable_soft_logout', true),
@@ -96,7 +96,13 @@ enum AppSettings<T> {
   knownErrorHashes<List<String>>('chat.fluffy.known_crash_hashes', []),
   checkForUpdates<bool>('chat.fluffy.check_for_updates', true),
   lastUpdateCheckDate<String>('chat.fluffy.last_update_check_date', ''),
-  fallbackLiveKitInstance<String>('chat.fluffy.fallback_live_kit_instance', '');
+  fallbackLiveKitInstance<String>('chat.fluffy.fallback_live_kit_instance', ''),
+
+  /// 已发现的新版本号（空表示无更新）。设置页「关于」靠它显示小红点。
+  appUpdateVersion<String>('qing.update.available_version', ''),
+
+  /// 上次静默检查更新的日期（yyyy-MM-dd），用于「一天只查一次」
+  appUpdateCheckedAt<String>('qing.update.checked_at', '');
 
   final String key;
   final T _defaultValue;

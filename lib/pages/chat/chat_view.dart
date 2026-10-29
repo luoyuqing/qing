@@ -84,7 +84,7 @@ class ChatView extends StatelessWidget {
               key: Key('chat_page'),
               extendBodyBehindAppBar: true,
               appBar: AppBar(
-                // 清助理：头部不画分割线，底色与页面一致
+                // Qing：头部不画分割线，底色与页面一致
                 shape: null,
                 scrolledUnderElevation: 0,
                 actionsIconTheme: IconThemeData(
@@ -253,7 +253,7 @@ class ChatView extends StatelessWidget {
                         onPressed: controller.startOrJoinVideoCall,
                       ),
                     ChatSettingsPopupMenu(controller.room, true),
-                    // 清助理 v1.8.0：聊天气泡配色入口（只影响聊天界面）
+                    // Qing v1.8.0：聊天气泡配色入口（只影响聊天界面）
                     const QingChatThemeButton(iconSize: 19),
                   ],
                 ],

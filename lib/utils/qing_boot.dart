@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 清助理
+// SPDX-FileCopyrightText: 2026 Qing
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
@@ -77,7 +77,7 @@ class QingBootState {
   );
 }
 
-/// 清助理 · 启动流程编排
+/// Qing · 启动流程编排
 ///
 /// ## 为什么要有这个类
 ///

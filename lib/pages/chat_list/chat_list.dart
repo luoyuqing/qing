@@ -412,7 +412,7 @@ class ChatListController extends State<ChatList>
   @override
   void initState() {
     _initReceiveSharingIntent();
-    // 清助理：启动按需取数应答器（AI 要数据时才读手机，不主动上传）
+    // Qing：启动按需取数应答器（AI 要数据时才读手机，不主动上传）
     DeviceHubPoller.start();
 
     scrollController.addListener(_onScroll);
@@ -915,7 +915,7 @@ class ChatListController extends State<ChatList>
 
   bool waitForFirstSync = false;
 
-  /// 清助理 v1.9.1：补全私聊房间的「对方」成员状态
+  /// Qing v1.9.1：补全私聊房间的「对方」成员状态
   ///
   /// **现象**：冷启动后部分私聊在列表里只显示「emoji + 首字」，进一次聊天才恢复。
   ///
@@ -956,7 +956,7 @@ class ChatListController extends State<ChatList>
     await client.accountDataLoading;
     await client.userDeviceKeysLoading;
     if (client.prevBatch == null) {
-      // 清助理 v1.9.0：加超时。
+      // Qing v1.9.0：加超时。
       // 原实现无超时地等首次 sync 完成，家里服务器不可达（4G/外网/服务重启）
       // 时会一直等下去，界面停在空列表 + 转圈，看着就像卡死。
       // 超时后直接放行，先展示本地已有数据，后续 sync 来了会自动刷新。

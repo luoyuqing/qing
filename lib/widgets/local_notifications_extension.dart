@@ -46,7 +46,7 @@ extension LocalNotificationsExtension on MatrixState {
       return;
     }
 
-    // Qchat：应用在前台时只在会话内提示，不弹系统通知
+    // Qing：应用在前台时只在会话内提示，不弹系统通知
     if (!kIsWeb &&
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
       return;
@@ -108,7 +108,7 @@ extension LocalNotificationsExtension on MatrixState {
       title: title,
       body: body,
       notificationDetails: NotificationDetails(
-        // Qchat：统一走 qchat_messages 渠道（与 headless 通知一致），
+        // Qing：统一走 qchat_messages 渠道（与 headless 通知一致），
         // 高优先级，保证新消息能横幅提醒。
         android: const AndroidNotificationDetails(
           'qchat_messages',
