@@ -168,7 +168,12 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
     database = await openDatabase(path, options: openDatabaseOptions);
   }
 
-  final secureStorage = FlutterSecureStorage(iOptions: iosOptions);
+  // v1.20.5 · 合入上游 v2.11.4（rc2.11.4-1）的修复：
+  // 没有数据库加密（cipher == null）时不启用 secure storage。
+  // 某些设备上 keystore 不可用会抛异常，进而掉进上面的 catch 分支
+  // 把数据库留档重建（本地历史要重新同步一遍），加这层保护就不会走到那。
+  final secureStorage =
+      cipher == null ? null : FlutterSecureStorage(iOptions: iosOptions);
 
   return await MatrixSdkDatabase.init(
     clientName,
@@ -176,11 +181,13 @@ Future<MatrixSdkDatabase> _constructDatabase(String clientName) async {
     maxFileSize: 1000 * 1000 * 10,
     fileStorageLocation: fileStorageLocation?.uri,
     deleteFilesAfterDuration: const Duration(days: 30),
-    secureStorage: (
-      read: (key) => secureStorage.read(key: key),
-      write: (key, value) => secureStorage.write(key: key, value: value),
-      delete: (key) => secureStorage.delete(key: key),
-    ),
+    secureStorage: secureStorage == null
+        ? null
+        : (
+            read: (key) => secureStorage.read(key: key),
+            write: (key, value) => secureStorage.write(key: key, value: value),
+            delete: (key) => secureStorage.delete(key: key),
+          ),
   );
 }
 
