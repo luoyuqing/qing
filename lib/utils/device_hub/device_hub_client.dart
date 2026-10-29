@@ -680,19 +680,24 @@ class DeviceHubClient {
       }, timeout: const Duration(seconds: 200));
 
   /// 局部更新候选
+  ///
+  /// [scope] 为 all 时，只把本次提交的字段同步到该候选所在的全部人设，
+  /// 各人设未提交的字段保留各自的原值（例如酒馆把 ark 单独调成 pro 不会被覆盖）。
   static Future<Map<String, dynamic>> updateCandidate({
     required String persona,
     required String key,
     required Map<String, dynamic> fields,
+    String scope = 'persona',
   }) =>
-      _patchJson('/agent/candidates/$key?persona=$persona', fields);
+      _patchJson('/agent/candidates/$key?persona=$persona&scope=$scope', fields);
 
-  /// 删除候选
+  /// 删除候选（scope=all 会从该候选所在的全部人设里删掉）
   static Future<Map<String, dynamic>> deleteCandidate({
     required String persona,
     required String key,
+    String scope = 'persona',
   }) =>
-      _deleteJson('/agent/candidates/$key?persona=$persona');
+      _deleteJson('/agent/candidates/$key?persona=$persona&scope=$scope');
 
   /// 探活某个候选
   static Future<Map<String, dynamic>> testCandidate({

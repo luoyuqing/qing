@@ -11,10 +11,22 @@ class CandidateEditPage extends StatefulWidget {
     super.key,
     required this.persona,
     this.existing,
+    this.scopes = const [],
+    this.diffs,
+    this.personaLabels = const {},
   });
 
   final String persona;
   final Map<String, dynamic>? existing;
+
+  /// 这条候选存在于哪些人设（新增时为空）
+  final List<String> scopes;
+
+  /// 各人设间有差异的字段，如 {'model': {'default': 'x', 'tavern': 'y'}}
+  final Map<String, dynamic>? diffs;
+
+  /// 人设 id -> 显示名
+  final Map<String, String> personaLabels;
 
   @override
   State<CandidateEditPage> createState() => _CandidateEditPageState();
@@ -36,6 +48,35 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
 
   bool get _isEdit => widget.existing != null;
 
+  bool get _canSync => !_isEdit || widget.scopes.length > 1;
+
+  String get _scopeHint {
+    if (!_isEdit) return '候选池按人设各存一份，建议三份保持一致';
+    if (widget.scopes.length <= 1) return '这条候选只在当前人设里';
+    final names =
+        widget.scopes.map((p) => widget.personaLabels[p] ?? p).join('、');
+    return '这条候选存在于 $names';
+  }
+
+  /// 其他处人设与本条取值不同的字段，提醒同步会覆盖哪些差异
+  List<String> get _diffNotes {
+    final d = widget.diffs;
+    if (d == null || d.isEmpty) return const [];
+    final out = <String>[];
+    final model = (d['model'] as Map?)?.cast<String, dynamic>();
+    if (model != null && model.isNotEmpty) {
+      final parts = model.entries
+          .where((e) => e.key != widget.persona)
+          .map((e) => '${widget.personaLabels[e.key] ?? e.key}=${e.value}')
+          .toList();
+      if (parts.isNotEmpty) {
+        out.add('模型在其他处不同：${parts.join('、')}。'
+            '若你把模型也改了并开启同步，这些差异会被统一。');
+      }
+    }
+    return out;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +87,8 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     _baseUrl = TextEditingController(text: '${e['base_url'] ?? ''}');
     _keyEnv = TextEditingController(text: '${e['key_env'] ?? ''}');
     _newEnv = TextEditingController();
+    // 新增默认同步；编辑时只有这条本来就在多人设里才默认同步
+    _allScopes = !_isEdit || widget.scopes.length > 1;
     _loadCreds();
   }
 
@@ -114,17 +157,29 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     setState(() => _saving = true);
     try {
       if (_isEdit) {
+        final e = widget.existing ?? const <String, dynamic>{};
+        final payload = <String, dynamic>{};
+        void put(String f, String v) {
+          if ('${e[f] ?? ''}' != v) payload[f] = v;
+        }
+
+        // 只提交真正改动的字段：同步到全部人设时，没动的字段各人设保留原值
+        put('label', label.isEmpty ? model : label);
+        put('model', model);
+        put('base_url', baseUrl);
+        put('provider', 'custom');
+        put('api_mode', 'chat_completions');
+        final ke = _keyEnv.text.trim();
+        if (ke.isNotEmpty && ke != '${e['key_env'] ?? ''}') payload['key_env'] = ke;
+        if (payload.isEmpty) {
+          if (mounted) Navigator.pop(context, false);
+          return;
+        }
         await DeviceHubClient.updateCandidate(
           persona: widget.persona,
           key: key,
-          fields: {
-            'label': label.isEmpty ? model : label,
-            'model': model,
-            'base_url': baseUrl,
-            'provider': 'custom',
-            'api_mode': 'chat_completions',
-            if (_keyEnv.text.trim().isNotEmpty) 'key_env': _keyEnv.text.trim(),
-          },
+          fields: payload,
+          scope: (_allScopes && widget.scopes.length > 1) ? 'all' : 'persona',
         );
       } else {
         await DeviceHubClient.addCandidate(
@@ -267,35 +322,72 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
               ],
             ),
           ),
-          if (!_isEdit) ...[
-            const SizedBox(height: 14),
-            QingCard(
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
+          const SizedBox(height: 14),
+          QingCard(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              _canSync
+                                  ? (_isEdit ? '同步到 ${widget.scopes.length} 个人设' : '同步到三个人设')
+                                  : '仅当前人设',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(_scopeHint,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _allScopes && _canSync,
+                      onChanged:
+                          _canSync ? (v) => setState(() => _allScopes = v) : null,
+                    ),
+                  ],
+                ),
+                if (_allScopes && _canSync) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _isEdit
+                        ? '只覆盖你改动的字段；没动的字段各人设保持原值'
+                        : '会把这条候选写进全部人设，便于各人设都能一键切换',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10.5,
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+                for (final note in _diffNotes)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('同步到三个人设',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text('候选池按人设各存一份，菜单要求三份一致',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 11,
-                                color: theme.colorScheme.onSurfaceVariant)),
+                        const Icon(Icons.info_outline,
+                            size: 12, color: Color(0xFFB5822C)),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(note,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10.5,
+                                  height: 1.5,
+                                  color: const Color(0xFFB5822C))),
+                        ),
                       ],
                     ),
                   ),
-                  Switch(
-                    value: _allScopes,
-                    onChanged: (v) => setState(() => _allScopes = v),
-                  ),
-                ],
-              ),
+              ],
             ),
-          ],
+          ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: _saving ? null : _save,

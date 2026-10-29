@@ -70,6 +70,28 @@ class _AgentModelPageState extends State<AgentModelPage> {
   Map<String, dynamic> get _model =>
       ((_state?['model'] as Map?) ?? const {}).cast<String, dynamic>();
 
+  Map<String, dynamic> get _scopeMap =>
+      ((_state?['scopes'] as Map?) ?? const {}).cast<String, dynamic>();
+
+  List<String> _scopesOf(String key) {
+    final v = _scopeMap[key];
+    return v is List ? v.map((e) => '$e').toList() : [_persona];
+  }
+
+  Map<String, dynamic>? _diffsOf(String key) {
+    final d = (_state?['diffs'] as Map?) ?? const {};
+    final v = d[key];
+    return v is Map ? v.cast<String, dynamic>() : null;
+  }
+
+  /// 只在部分人设存在的候选，给个角标提醒
+  String _scopeBadge(String key) {
+    final scopes = _scopesOf(key);
+    if (_personas.isEmpty || scopes.length >= _personas.length) return '';
+    if (scopes.length == 1 && scopes.first == _persona) return '仅本机';
+    return '仅${scopes.map((p) => _personas[p] ?? p).join('、')}';
+  }
+
   List<Map<String, dynamic>> get _candidates =>
       (((_state?['candidates'] as List?) ?? const [])
           .whereType<Map>()
@@ -135,6 +157,9 @@ class _AgentModelPageState extends State<AgentModelPage> {
         builder: (_) => CandidateEditPage(
           persona: _persona,
           existing: cand,
+          scopes: cand == null ? const [] : _scopesOf('${cand['key']}'),
+          diffs: cand == null ? null : _diffsOf('${cand['key']}'),
+          personaLabels: _personas,
         ),
       ),
     );
@@ -145,30 +170,43 @@ class _AgentModelPageState extends State<AgentModelPage> {
   }
 
   Future<void> _deleteCandidate(Map<String, dynamic> cand) async {
-    final ok = await showDialog<bool>(
+    final key = '${cand['key']}';
+    final scopes = _scopesOf(key);
+    final others = scopes.where((p) => p != _persona).toList();
+    final otherNames = others.map((p) => _personas[p] ?? p).join('、');
+    final pick = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除候选模型'),
         content: Text(
-          '将删除「${cand['label']}」（${cand['model']}）。\n\n'
+          '「${cand['label']}」（${cand['model']}）\n\n'
           '${cand['is_current'] == true ? '它正被当前人设使用：删除后不会立刻影响运行，但会失去切回它的入口。\n\n' : ''}'
+          '${others.isEmpty ? '' : '这条同时存在于 $otherNames，可以选择一起删掉。\n\n'}'
           '已配置的密钥不会删除。',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          if (others.isNotEmpty)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'persona'),
+              child: const Text('只删当前'),
+            ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, others.isEmpty ? 'persona' : 'all'),
+            child: Text(others.isEmpty ? '删除' : '全部删除'),
           ),
         ],
       ),
     );
-    if (ok != true) return;
+    if (pick == null) return;
     try {
-      await DeviceHubClient.deleteCandidate(persona: _persona, key: '${cand['key']}');
+      await DeviceHubClient.deleteCandidate(
+          persona: _persona, key: key, scope: pick);
       await _load();
-      _toast('已删除');
+      _toast(pick == 'all' ? '已从 ${scopes.length} 个人设删除' : '已删除');
     } catch (e) {
       _toast('删除失败：$e');
     }
@@ -612,7 +650,8 @@ class _AgentModelPageState extends State<AgentModelPage> {
         const SizedBox(height: 12),
         Text(
           '密钥统一存在 X2 的系统级 /etc/hermes/.env，App 只读变量名与状态，永不回显密钥值。'
-          '候选池按人设各存一份，新增时默认同步三个人设。',
+          '候选池按人设各存一份：新增、编辑、删除都可以选择是否同步到全部人设。'
+          '同步编辑时只覆盖你改动的字段，各人设单独调过的值不会被顺带改掉。',
           style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 11, height: 1.6, color: theme.colorScheme.onSurfaceVariant),
         ),
@@ -673,11 +712,33 @@ class _AgentModelPageState extends State<AgentModelPage> {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text('${c['model']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('${c['model']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant)),
+                      ),
+                      if (_scopeBadge('${c['key']}').isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFB5822C).withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(_scopeBadge('${c['key']}'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 9.5,
+                                  color: const Color(0xFFB5822C))),
+                        ),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 1),
                   Row(
                     children: [
