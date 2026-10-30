@@ -13,6 +13,19 @@ class DeviceHubPoller {
   static bool _running = false;
   static bool _started = false;
 
+  /// 空闲退避档位（秒）：连续没有命令时逐级拉长挂起时长。
+  ///
+  /// 上限 120 秒是实测结论——公网单次挂起 121.5 秒仍正常返回 200，
+  /// Cloudflare 没在 100 秒处掐断，服务端上限已同步放到 130。
+  ///
+  /// 取数延迟不受影响：服务端在挂起期间每 0.4 秒查一次待发命令，命令一到
+  /// 立即返回；历史 14 条命令的端到端中位耗时 3.0 秒（大头是手机读数据）。
+  /// 甚至因为挂起更长、请求之间的空窗占比更小，命中命令的概率还略高一点。
+  static const List<int> _idleWaits = <int>[45, 75, 120];
+
+  /// 每一档要连续空转多少次才升一档
+  static const int _stepsPerLevel = 5;
+
   static void start() {
     if (_started) return;
     _started = true;
@@ -22,16 +35,22 @@ class DeviceHubPoller {
   static Future<void> _loop() async {
     if (_running) return;
     _running = true;
+    // 连续空转计数：收到命令立即归零，回到最灵敏的 45 秒档
+    var idle = 0;
     while (true) {
       try {
         if (!await DeviceHubClient.isPaired()) {
           await Future<void>.delayed(const Duration(seconds: 15));
           continue;
         }
-        // 长轮询挂起 45 秒：AI 下发命令时服务端 0.4s 内就会发现并返回，
-        // 取数延迟不变，但手机侧请求数从约 6000 次/天降到约 1600 次/天。
-        final cmd = await DeviceHubClient.pollDevice(waitSeconds: 45);
-        if (cmd == null) continue;
+        final level = min(idle ~/ _stepsPerLevel, _idleWaits.length - 1);
+        final cmd =
+            await DeviceHubClient.pollDevice(waitSeconds: _idleWaits[level]);
+        if (cmd == null) {
+          idle++;
+          continue;
+        }
+        idle = 0;
         await _handle(cmd);
       } catch (_) {
         // 网络抖动 / hub 重启：退避后继续

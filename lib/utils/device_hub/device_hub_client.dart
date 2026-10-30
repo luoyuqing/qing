@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:fluffychat/utils/custom_http_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'device_data_bridge.dart';
@@ -12,6 +14,23 @@ import 'device_data_bridge.dart';
 /// token 存 Android Keystore（flutter_secure_storage），不落日志。
 class DeviceHubClient {
   static const _tokenKey = 'qingzhuli.device_hub.token';
+
+  /// 复用的 HTTP 客户端。
+  ///
+  /// 顶层 `http.get()` 每次都会新建一个临时 IOClient、用完即关，等于每个请求
+  /// 都要重走一遍 TCP + TLS 握手——公网单次往返 1.1~2.5 秒里，握手占 1 秒以上。
+  /// 长轮询是「响应回来立刻发下一个」，请求之间只隔毫秒，连接 100% 能复用，
+  /// 所以每天约 1500 次握手可以直接降到接近 0。
+  ///
+  /// idleTimeout 默认只有 15 秒，放大到 90 秒，让页面请求之间也能复用。
+  /// 底层复用项目现成的 HttpClient 工厂：它会把 ISRG Root X1/X2 装进信任链，
+  /// 老 Android 系统连 Cloudflare 的 Let's Encrypt 证书时才不会握手失败。
+  static final http.Client _http = IOClient(
+    CustomHttpClient.customHttpClient()
+      ..idleTimeout = const Duration(seconds: 90)
+      ..connectionTimeout = const Duration(seconds: 15),
+  );
+
   static const _urlKey = 'qingzhuli.device_hub.url';
   static const _lastSyncKey = 'qingzhuli.device_hub.last_sync';
   static const _lastSyncMsKey = 'qingzhuli.device_hub.last_sync_ms';
@@ -103,7 +122,7 @@ class DeviceHubClient {
     final authToken = await token();
     if (authToken == null) throw Exception('尚未配对');
     final base = await baseUrl();
-    final resp = await http
+    final resp = await _http
         .post(Uri.parse('$base$path'),
             headers: _headers(authToken), body: jsonEncode(body))
         .timeout(timeout);
@@ -120,7 +139,7 @@ class DeviceHubClient {
     final authToken = await token();
     if (authToken == null) throw Exception('尚未配对');
     final base = await baseUrl();
-    final resp = await http
+    final resp = await _http
         .patch(Uri.parse('$base$path'),
             headers: _headers(authToken), body: jsonEncode(body))
         .timeout(const Duration(seconds: 15));
@@ -137,7 +156,7 @@ class DeviceHubClient {
     Map<String, String> headers,
   ) async {
     Future<http.Response> once() =>
-        http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+        _http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
     try {
       return await once();
     } catch (e) {
@@ -368,7 +387,7 @@ class DeviceHubClient {
     final authToken = await token();
     if (authToken == null) return null;
     final base = await baseUrl();
-    final resp = await http
+    final resp = await _http
         .get(Uri.parse('$base/device/poll?wait=$waitSeconds'),
             headers: _headers(authToken))
         .timeout(Duration(seconds: waitSeconds + 10));
@@ -563,7 +582,7 @@ class DeviceHubClient {
     final authToken = await token();
     if (authToken == null) throw Exception('尚未配对');
     final base = await baseUrl();
-    final resp = await http
+    final resp = await _http
         .delete(Uri.parse('$base$path'), headers: _headers(authToken))
         .timeout(const Duration(seconds: 30));
     if (resp.statusCode != 200) throw Exception(_errText(resp));
