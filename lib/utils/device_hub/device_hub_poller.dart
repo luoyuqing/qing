@@ -28,7 +28,9 @@ class DeviceHubPoller {
           await Future<void>.delayed(const Duration(seconds: 15));
           continue;
         }
-        final cmd = await DeviceHubClient.pollDevice(waitSeconds: 12);
+        // 长轮询挂起 45 秒：AI 下发命令时服务端 0.4s 内就会发现并返回，
+        // 取数延迟不变，但手机侧请求数从约 6000 次/天降到约 1600 次/天。
+        final cmd = await DeviceHubClient.pollDevice(waitSeconds: 45);
         if (cmd == null) continue;
         await _handle(cmd);
       } catch (_) {

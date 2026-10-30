@@ -87,6 +87,24 @@ class _MemoryPageState extends State<MemoryPage>
   }
 
   /// 当前人设的名字（办公小爱 / 亲密小爱 / 酒馆角色卡…）
+  /// 字数：去掉所有空白后的字符数（中文按字、英文按字符）
+  static int _wordCount(String? text) {
+    if (text == null || text.isEmpty) return 0;
+    return text.replaceAll(RegExp(r'\s'), '').runes.length;
+  }
+
+  /// 千分位
+  static String _fmtCount(int n) {
+    if (n < 1000) return '$n';
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
   String get _personaLabel {
     final hit = _personas.firstWhere(
       (p) => p['id'] == _persona,
@@ -259,7 +277,8 @@ class _MemoryPageState extends State<MemoryPage>
                       const SizedBox(height: 3),
                       Text(
                         '$subtitle'
-                        '${doc['updated_at'] == null ? '' : ' · 更新于 ${_shortTime(doc['updated_at'])}'}',
+                        '${doc['updated_at'] == null ? '' : ' · 更新于 ${_shortTime(doc['updated_at'])}'}'
+                        ' · ${_fmtCount(_wordCount(content))} 字',
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 11.5,
                           color: theme.colorScheme.onSurfaceVariant
@@ -510,9 +529,25 @@ class _MemoryPageState extends State<MemoryPage>
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-        itemCount: _personaEntries.length,
+        itemCount: _personaEntries.length + 1,
         itemBuilder: (context, i) {
-          final entry = _personaEntries[i];
+          if (i == 0) {
+            final total = _personaEntries.fold<int>(
+              0,
+              (sum, e) => sum + _wordCount('${e['content'] ?? ''}'),
+            );
+            return Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 10),
+              child: Text(
+                '共 ${_personaEntries.length} 条 · ${_fmtCount(total)} 字',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11.5,
+                  color: theme.colorScheme.onSurfaceVariant.withAlpha(190),
+                ),
+              ),
+            );
+          }
+          final entry = _personaEntries[i - 1];
           final content = '${entry['content'] ?? ''}';
           final preview = content
               .replaceAll(RegExp(r'\s+'), ' ')
@@ -563,6 +598,17 @@ class _MemoryPageState extends State<MemoryPage>
                   style: theme.textTheme.bodySmall?.copyWith(
                     height: 1.55,
                     color: theme.colorScheme.onSurface.withAlpha(200),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_fmtCount(_wordCount(content))} 字',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 10.5,
+                      color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                    ),
                   ),
                 ),
               ],

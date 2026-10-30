@@ -364,7 +364,7 @@ class DeviceHubClient {
       });
 
   // ---------- 按需取数（AI 拉，手机应答） ----------
-  static Future<Map<String, dynamic>?> pollDevice({int waitSeconds = 20}) async {
+  static Future<Map<String, dynamic>?> pollDevice({int waitSeconds = 45}) async {
     final authToken = await token();
     if (authToken == null) return null;
     final base = await baseUrl();
