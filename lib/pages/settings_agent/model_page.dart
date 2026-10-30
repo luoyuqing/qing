@@ -45,13 +45,15 @@ class _AgentModelPageState extends State<AgentModelPage> {
       _error = null;
     });
     try {
-      final state = await DeviceHubClient.agentModel(persona: _persona);
-      List<Map<String, dynamic>> creds;
-      try {
-        creds = await DeviceHubClient.credentials();
-      } catch (_) {
-        creds = const [];
-      }
+      // 两个请求并发；凭据列表失败不影响主状态展示
+      final results = await Future.wait<dynamic>([
+        DeviceHubClient.agentModel(persona: _persona),
+        DeviceHubClient.credentials().catchError(
+          (_) => <Map<String, dynamic>>[],
+        ),
+      ]);
+      final state = results[0] as Map<String, dynamic>;
+      final creds = (results[1] as List).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
         _state = state;
