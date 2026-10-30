@@ -749,6 +749,38 @@ class DeviceHubClient {
         if (keyEnv.isNotEmpty) 'key_env': keyEnv,
       });
 
+  /// 保存一条记忆库条目的正文（frontmatter 由服务端保留，标题按首行重建）
+  static Future<Map<String, dynamic>> vaultNoteSave({
+    required String persona,
+    required String name,
+    required String content,
+  }) =>
+      _postJson('/memory/vault/note', {
+        'persona': persona,
+        'name': name,
+        'content': content,
+      }, timeout: const Duration(seconds: 30));
+
+  /// 删除一条记忆库条目（服务端移到 vault 根的 .trash，不是真删）
+  static Future<Map<String, dynamic>> vaultNoteDelete({
+    required String persona,
+    required String name,
+  }) =>
+      _deleteJson('/memory/vault/note?persona=$persona'
+          '&name=${Uri.encodeQueryComponent(name)}');
+
+  /// 向量索引状态（服务端缓存 5 分钟；未命中缓存时约 3~6 秒）
+  static Future<Map<String, dynamic>> vaultStatus({
+    String persona = 'default',
+  }) =>
+      getJson('/memory/vault/status', query: {'persona': persona});
+
+  /// 体检：一次返回全部健康检查项（服务端缓存 30 秒，通常 <100ms）
+  static Future<Map<String, dynamic>> diagnose({
+    String persona = 'default',
+  }) =>
+      getJson('/diagnose', query: {'persona': persona});
+
   /// 保存辅助模型（上下文压缩 / 图片理解…）
   ///
   /// [scope] 为 all 时写进全部人设（三个人设共用一个辅助模型）。

@@ -1,3 +1,4 @@
+import 'package:fluffychat/pages/memory/text_editor_page.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/markdown_view.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
@@ -56,14 +57,113 @@ class _MemoryVaultPageState extends State<MemoryVaultPage> {
     }
   }
 
+  /// 剥掉 fact 的标题行与 frontmatter，只留正文给编辑器
+  static String _bodyOf(String raw) {
+    final lines = raw.split('\n');
+    var i = 0;
+    while (i < lines.length) {
+      final l = lines[i].trim();
+      if (i == 0 && l.startsWith('# ')) {
+        i++;
+        continue;
+      }
+      if (l.isEmpty || RegExp(r'^[a-z_]+:\s').hasMatch(l)) {
+        i++;
+        continue;
+      }
+      break;
+    }
+    return lines.sublist(i).join('\n').trim();
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _edit(Map<String, dynamic> item, BuildContext dialogContext) async {
+    String raw;
+    try {
+      raw = await DeviceHubClient.vaultNote(
+        persona: widget.persona,
+        name: '${item['name']}',
+      );
+    } catch (e) {
+      _toast('读取失败：$e');
+      return;
+    }
+    if (!mounted) return;
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => TextEditorPage(
+          title: '编辑记忆',
+          initialText: _bodyOf(raw),
+          hint: '第一行会成为标题；改完检索立刻生效（向量部分稍后收敛）',
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    try {
+      await DeviceHubClient.vaultNoteSave(
+        persona: widget.persona,
+        name: '${item['name']}',
+        content: result,
+      );
+      if (!mounted) return;
+      Navigator.pop(dialogContext);
+      await _load();
+      _toast('已保存');
+    } catch (e) {
+      _toast('保存失败：$e');
+    }
+  }
+
+  Future<void> _delete(Map<String, dynamic> item, BuildContext dialogContext) async {
+    final theme = Theme.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('删除这条记忆'),
+        content: Text(
+          '「${item['title'] ?? item['name']}」\n\n'
+          '会移到服务器的 .trash 目录（不是立刻真删），但小爱将不再检索到它。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await DeviceHubClient.vaultNoteDelete(
+        persona: widget.persona,
+        name: '${item['name']}',
+      );
+      if (!mounted) return;
+      Navigator.pop(dialogContext);
+      await _load();
+      _toast('已删除');
+    } catch (e) {
+      _toast('删除失败：$e');
+    }
+  }
+
   Future<void> _open(Map<String, dynamic> item) async {
     final theme = Theme.of(context);
     showDialog<void>(
       context: context,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         insetPadding: const EdgeInsets.all(20),
         child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.72,
+          height: MediaQuery.sizeOf(dialogContext).height * 0.72,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -79,7 +179,7 @@ class _MemoryVaultPageState extends State<MemoryVaultPage> {
                               ?.copyWith(fontWeight: FontWeight.w600)),
                     ),
                     IconButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(dialogContext),
                       icon: const Icon(Icons.close),
                     ),
                   ],
@@ -104,6 +204,45 @@ class _MemoryVaultPageState extends State<MemoryVaultPage> {
                       child: MarkdownView(data: snap.data ?? ''),
                     );
                   },
+                ),
+              ),
+              const Divider(height: 0.5),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+                child: Row(
+                  children: [
+                    if (item['editable'] == true) ...[
+                      TextButton.icon(
+                        onPressed: () => _edit(item, dialogContext),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('编辑'),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _delete(item, dialogContext),
+                        style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('删除'),
+                      ),
+                      const Spacer(),
+                    ] else
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            '来自「记忆/画像」的镜像条目，请到记忆页改原文',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('关闭'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -202,11 +341,36 @@ class _MemoryVaultPageState extends State<MemoryVaultPage> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('${e['title'] ?? e['name']}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(fontWeight: FontWeight.w600)),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text('${e['title'] ?? e['name']}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme.textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                        fontWeight: FontWeight.w600)),
+                                          ),
+                                          if (e['is_mirror'] == true)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 5, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme
+                                                    .onSurfaceVariant
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text('镜像',
+                                                  style: theme.textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          fontSize: 9.5,
+                                                          color: theme.colorScheme
+                                                              .onSurfaceVariant)),
+                                            ),
+                                        ],
+                                      ),
                                       if (excerpt.isNotEmpty) ...[
                                         const SizedBox(height: 4),
                                         Text(excerpt,

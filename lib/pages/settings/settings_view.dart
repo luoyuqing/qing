@@ -6,6 +6,7 @@
 import 'package:async/async.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/settings_agent/diagnose_page.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
 import 'package:fluffychat/pages/settings_agent/usage_page.dart';
@@ -283,6 +284,14 @@ class SettingsView extends StatelessWidget {
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
               onTap: () => context.go('/rooms/settings/device-hub'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.health_and_safety_outlined),
+              title: const Text('体检'),
+              subtitle: const Text('配置、模型、凭据、记忆、任务一次查完'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DiagnosePage()),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.tune_outlined),
