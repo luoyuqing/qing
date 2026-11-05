@@ -548,9 +548,10 @@ class Message extends StatelessWidget {
                                                         child: AbsorbPointer(
                                                           child: ReplyContent(
                                                             replyEvent,
-                                                            ownMessage:
-                                                                ownMessage,
                                                             timeline: timeline,
+                                                            // 气泡永远是浅底深字，
+                                                            // 引用框跟着气泡文字色走
+                                                            textColor: textColor,
                                                           ),
                                                         ),
                                                       ),
