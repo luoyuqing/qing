@@ -1,7 +1,7 @@
 import 'package:fluffychat/utils/device_hub/device_data_bridge.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/utils/qing_boot.dart';
-import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
+import 'package:fluffychat/pages/settings_agent/diagnose_page.dart';
 import 'package:fluffychat/pages/settings_agent/audit_page.dart';
 import 'package:fluffychat/pages/settings_agent/devices_page.dart';
 import 'package:go_router/go_router.dart';
@@ -333,13 +333,14 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
             ),
           const Divider(),
 
+          // 服务器状态已提到设置主列表；这里换成体检
           ListTile(
-            leading: const Icon(Icons.monitor_heart_outlined),
-            title: const Text('服务器状态'),
-            subtitle: const Text('CPU、内存、磁盘、服务与容器的实时占用'),
+            leading: const Icon(Icons.health_and_safety_outlined),
+            title: const Text('体检'),
+            subtitle: const Text('配置、模型、凭据、记忆、任务一次查完'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ServerStatusPage()),
+              MaterialPageRoute(builder: (_) => const DiagnosePage()),
             ),
           ),
           const Divider(),

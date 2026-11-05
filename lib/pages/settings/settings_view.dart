@@ -7,7 +7,7 @@ import 'package:async/async.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
 import 'package:fluffychat/pages/settings_agent/credentials_page.dart';
-import 'package:fluffychat/pages/settings_agent/diagnose_page.dart';
+import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
 import 'package:fluffychat/pages/settings_agent/usage_page.dart';
@@ -286,12 +286,13 @@ class SettingsView extends StatelessWidget {
                   : null,
               onTap: () => context.go('/rooms/settings/device-hub'),
             ),
+            // 体检挪进「设备数据」页；这里换成服务器状态（少一层点击）
             ListTile(
-              leading: const Icon(Icons.health_and_safety_outlined),
-              title: const Text('体检'),
-              subtitle: const Text('配置、模型、凭据、记忆、任务一次查完'),
+              leading: const Icon(Icons.monitor_heart_outlined),
+              title: const Text('服务器状态'),
+              subtitle: const Text('CPU、内存、磁盘、服务与容器的实时占用'),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const DiagnosePage()),
+                MaterialPageRoute(builder: (_) => const ServerStatusPage()),
               ),
             ),
             ListTile(
