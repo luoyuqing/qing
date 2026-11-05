@@ -139,9 +139,11 @@ class Message extends StatelessWidget {
     final textColor = QingChatTheme.bubbleText;
 
     final linkColor = ownMessage
-        ? theme.brightness == Brightness.light
-              ? theme.colorScheme.primaryFixed
-              : theme.colorScheme.onTertiaryContainer
+        // Qing：我方气泡永远是浅底（主色兑白 30%），原来的 primaryFixed
+        // 是一层浅蓝，落在浅蓝气泡上等于隐形 —— 链接和「显示更多」一起糊掉。
+        // 这里用气泡文字色往聊天主题色偏 45%：保留用户选的主题味道，
+        // 但底色足够深，任意主题色下都能看清（晴空蓝 → #355078，约 5.8:1）。
+        ? Color.lerp(QingChatTheme.bubbleText, chatAccent, 0.45)!
         : theme.colorScheme.primary;
 
     final rowMainAxisAlignment = ownMessage
