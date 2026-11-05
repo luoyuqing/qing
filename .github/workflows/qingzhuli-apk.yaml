@@ -15,7 +15,7 @@ jobs:
       KS_PASS: ${{ secrets.KS_PASS }}
       KEY_ALIAS: yomi
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # runner 磁盘只有十几 G：Flutter SDK(1.7G) + pub(0.2G) + Gradle 缓存(3.3G)
       # + 三套 ABI 的原生库叠起来会把盘顶满，v1.21.7 首次构建就死在
