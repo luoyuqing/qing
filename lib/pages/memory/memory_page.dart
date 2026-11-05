@@ -50,20 +50,20 @@ class _MemoryPageState extends State<MemoryPage>
       _error = null;
     });
     try {
-      // 并发拉取：四个请求串行要 6 秒（单次公网往返约 1.2 秒），
-      // 并发后约 2.3 秒（实测），页面打开体感差别很明显。
-      final results = await Future.wait<dynamic>([
-        _personas.isEmpty
-            ? DeviceHubClient.personas()
-            : Future<List<Map<String, dynamic>>>.value(_personas),
-        DeviceHubClient.memory(persona: _persona),
-        DeviceHubClient.skills(persona: _persona),
-        DeviceHubClient.personaEntries(persona: _persona),
-      ]);
-      _personas = results[0] as List<Map<String, dynamic>>;
-      final memory = results[1] as Map<String, dynamic>;
-      final skills = results[2] as List<Map<String, dynamic>>;
-      final personaData = results[3] as Map<String, dynamic>;
+      // 一次 bundle 取全（人设 + 记忆/画像 + 技能 + 人设条目）。
+      // 公网单次往返约 1.2 秒，原来并发 4 个请求也要付多次往返；合并后只付一次。
+      final bundle = await DeviceHubClient.memoryBundle(persona: _persona);
+      _personas = ((bundle['personas'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+      final memory = ((bundle['memory'] as Map?) ?? const {})
+          .map((k, v) => MapEntry(k.toString(), v));
+      final skills = ((bundle['skills'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+      final personaData = {'items': bundle['entries'] ?? const []};
       if (!mounted) return;
       setState(() {
         _memoryData = memory;

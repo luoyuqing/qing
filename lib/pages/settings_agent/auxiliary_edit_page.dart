@@ -11,10 +11,14 @@ class AuxiliaryEditPage extends StatefulWidget {
     super.key,
     required this.persona,
     required this.item,
+    this.candidates = const [],
   });
 
   final String persona;
   final Map<String, dynamic> item;
+
+  /// 当前人设的候选池，用于一键填充模型/端点/凭据
+  final List<Map<String, dynamic>> candidates;
 
   @override
   State<AuxiliaryEditPage> createState() => _AuxiliaryEditPageState();
@@ -182,6 +186,33 @@ class _AuxiliaryEditPageState extends State<AuxiliaryEditPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.candidates.isNotEmpty) ...[
+                  Text('从候选池选择（点一下自动填模型、端点、凭据）',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in widget.candidates)
+                        ActionChip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(
+                            '${c['label'] ?? c['key']}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onPressed: () => setState(() {
+                            _model.text = '${c['model'] ?? ''}';
+                            _baseUrl.text = '${c['base_url'] ?? ''}';
+                            _keyEnv.text = '${c['key_env'] ?? ''}';
+                          }),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 TextField(
                   controller: _model,
                   decoration: InputDecoration(

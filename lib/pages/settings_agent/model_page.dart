@@ -45,15 +45,13 @@ class _AgentModelPageState extends State<AgentModelPage> {
       _error = null;
     });
     try {
-      // 两个请求并发；凭据列表失败不影响主状态展示
-      final results = await Future.wait<dynamic>([
-        DeviceHubClient.agentModel(persona: _persona),
-        DeviceHubClient.credentials().catchError(
-          (_) => <Map<String, dynamic>>[],
-        ),
-      ]);
-      final state = results[0] as Map<String, dynamic>;
-      final creds = (results[1] as List).cast<Map<String, dynamic>>();
+      // 一次 bundle：模型状态 + 候选池 + 凭据清单 + 三人设摘要
+      final bundle = await DeviceHubClient.agentBundle(persona: _persona);
+      final state = bundle;
+      final creds = ((bundle['credentials'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
       if (!mounted) return;
       setState(() {
         _state = state;
@@ -262,7 +260,11 @@ class _AgentModelPageState extends State<AgentModelPage> {
   Future<void> _editAuxiliary(Map<String, dynamic> item) async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => AuxiliaryEditPage(persona: _persona, item: item),
+        builder: (_) => AuxiliaryEditPage(
+          persona: _persona,
+          item: item,
+          candidates: _candidates,
+        ),
       ),
     );
     if (changed == true) {

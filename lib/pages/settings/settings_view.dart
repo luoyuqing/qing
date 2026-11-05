@@ -6,6 +6,7 @@
 import 'package:async/async.dart';
 import 'package:fluffychat/config/setting_keys.dart';
 import 'package:fluffychat/l10n/l10n.dart';
+import 'package:fluffychat/pages/settings_agent/credentials_page.dart';
 import 'package:fluffychat/pages/settings_agent/diagnose_page.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
@@ -299,6 +300,14 @@ class SettingsView extends StatelessWidget {
               subtitle: const Text('端点 · 模型 · 候选池 · 备用链（按人设独立）'),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AgentModelPage()),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.key_outlined),
+              title: const Text('凭据'),
+              subtitle: const Text('模型端点的 API Key 增删改（写系统级 .env）'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CredentialsPage()),
               ),
             ),
             ListTile(

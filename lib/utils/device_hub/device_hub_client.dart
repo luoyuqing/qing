@@ -775,6 +775,38 @@ class DeviceHubClient {
   }) =>
       getJson('/memory/vault/status', query: {'persona': persona});
 
+  /// 记忆页 bundle：人设列表 + 记忆/画像 + 技能 + 人设条目，一次取全。
+  ///
+  /// 公网单次往返约 1.2 秒，原来 4 个请求串/并发都要付多次往返，合并后只付一次。
+  static Future<Map<String, dynamic>> memoryBundle({
+    String persona = 'default',
+  }) =>
+      getJson('/memory/bundle', query: {'persona': persona});
+
+  /// 模型页 bundle：模型状态 + 候选池 + 凭据清单 + 三人设摘要
+  static Future<Map<String, dynamic>> agentBundle({
+    String persona = 'default',
+  }) =>
+      getJson('/agent/bundle', query: {'persona': persona});
+
+  /// 写凭据到系统级 .env（新增或覆盖），返回引用清单
+  static Future<Map<String, dynamic>> setCredential({
+    required String name,
+    required String value,
+  }) =>
+      _postJson('/agent/credentials', {
+        'name': name,
+        'value': value,
+      }, timeout: const Duration(seconds: 40));
+
+  /// 删除系统级 .env 里的凭据；被引用时服务端返回 409，需 force 才删
+  static Future<Map<String, dynamic>> deleteCredential({
+    required String name,
+    bool force = false,
+  }) =>
+      _deleteJson('/agent/credentials?name=${Uri.encodeQueryComponent(name)}'
+          '&force=${force ? '1' : '0'}');
+
   /// 体检：一次返回全部健康检查项（服务端缓存 30 秒，通常 <100ms）
   static Future<Map<String, dynamic>> diagnose({
     String persona = 'default',
@@ -805,8 +837,12 @@ class DeviceHubClient {
   static Future<Map<String, dynamic>> appRelease() => getJson('/app/release');
 
   /// 凭据健康（只有变量名与来源，无值）
-  static Future<List<Map<String, dynamic>>> credentials() async {
-    final data = await getJson('/agent/credentials');
+  /// 凭据清单。[withRefs] 为 true 时附带「被谁引用」（主模型/候选/备用链/辅助模型）
+  static Future<List<Map<String, dynamic>>> credentials({
+    bool withRefs = false,
+  }) async {
+    final data = await getJson('/agent/credentials',
+        query: withRefs ? {'with_refs': '1'} : null);
     return _asMaps(data['items']);
   }
 
