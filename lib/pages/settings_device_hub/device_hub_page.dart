@@ -335,7 +335,7 @@ class _DeviceHubPageState extends State<DeviceHubPage> with WidgetsBindingObserv
 
           ListTile(
             leading: const Icon(Icons.monitor_heart_outlined),
-            title: const Text('X2 服务器状态'),
+            title: const Text('服务器状态'),
             subtitle: const Text('CPU、内存、磁盘、服务与容器的实时占用'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(

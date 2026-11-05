@@ -98,6 +98,13 @@ enum AppSettings<T> {
   lastUpdateCheckDate<String>('chat.fluffy.last_update_check_date', ''),
   fallbackLiveKitInstance<String>('chat.fluffy.fallback_live_kit_instance', ''),
 
+  /// Qing v1.21.7 · 聊天列表「归档」的房间 ID 列表
+  ///
+  /// 只存本地（SharedPreferences），不同步到服务端，也不改动 Matrix 的
+  /// m.tag / m.lowpriority —— 归档纯粹是「这台手机上怎么显示」的偏好，
+  /// 敏感会话不该在服务端留下任何额外痕迹。
+  archivedRooms<List<String>>('qing.chat_list.archived_rooms', []),
+
   /// 已发现的新版本号（空表示无更新）。设置页「关于」靠它显示小红点。
   appUpdateVersion<String>('qing.update.available_version', ''),
 

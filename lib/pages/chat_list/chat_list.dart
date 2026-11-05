@@ -78,7 +78,7 @@ class ChatList extends StatefulWidget {
 }
 
 class ChatListController extends State<ChatList>
-    with TickerProviderStateMixin, RouteAware {
+    with TickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
   StreamSubscription? _intentDataStreamSubscription;
 
   StreamSubscription? _intentFileStreamSubscription;
@@ -412,6 +412,8 @@ class ChatListController extends State<ChatList>
   @override
   void initState() {
     _initReceiveSharingIntent();
+    _loadArchivedRooms();
+    WidgetsBinding.instance.addObserver(this);
     // Qing：启动按需取数应答器（AI 要数据时才读手机，不主动上传）
     DeviceHubPoller.start();
 
@@ -485,6 +487,7 @@ class ChatListController extends State<ChatList>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _intentDataStreamSubscription?.cancel();
     _intentFileStreamSubscription?.cancel();
     _callEventSubscription?.cancel();
@@ -496,6 +499,15 @@ class ChatListController extends State<ChatList>
     scrolledToTop.dispose();
     _clientStream.close();
     super.dispose();
+  }
+
+  /// 退到后台就把归档区收回去：回到桌面再进来时不会停在「已经展开」的状态，
+  /// 归档里的敏感会话不会因为上次看过就一直晾在列表里。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused && showArchivedChats) {
+      setState(() => showArchivedChats = false);
+    }
   }
 
   void _processPushHelperCrashReport() {
@@ -619,6 +631,21 @@ class ChatListController extends State<ChatList>
                 ],
               ),
             ),
+          PopupMenuItem(
+            value: ChatContextAction.archive,
+            child: Row(
+              mainAxisSize: .min,
+              children: [
+                Icon(
+                  isArchived(room.id)
+                      ? Icons.unarchive
+                      : Icons.archive_outlined,
+                ),
+                const SizedBox(width: 12),
+                Text(isArchived(room.id) ? '取消归档' : '归档聊天'),
+              ],
+            ),
+          ),
         ],
         PopupMenuItem(
           value: ChatContextAction.leave,
@@ -754,6 +781,9 @@ class ChatListController extends State<ChatList>
           future: () => room.setFavourite(!room.isFavourite),
         );
         return;
+      case ChatContextAction.archive:
+        await setRoomArchived(room, !isArchived(room.id));
+        return;
       case ChatContextAction.markUnread:
         await showFutureLoadingDialog(
           context: context,
@@ -867,6 +897,67 @@ class ChatListController extends State<ChatList>
   }
 
   Map<String, int> roomTags = {};
+
+  /// Qing v1.21.7 · 归档的聊天（本机偏好，不上传）
+  ///
+  /// 存 roomId 而不是 Room 对象：sync 里房间对象会被替换，
+  /// 存 ID 才能在任意一次 rebuild 里稳定判断。
+  final Set<String> archivedRoomIds = <String>{};
+
+  /// 归档区当前是否展开。默认收起 —— 平时就是「不存在的聊天」。
+  bool showArchivedChats = false;
+
+  bool isArchived(String roomId) => archivedRoomIds.contains(roomId);
+
+  void _loadArchivedRooms() {
+    final stored = AppSettings.archivedRooms.value;
+    archivedRoomIds
+      ..clear()
+      ..addAll(stored);
+  }
+
+  void toggleArchivedChats() {
+    setState(() => showArchivedChats = !showArchivedChats);
+  }
+
+  /// 聊天列表顶部继续下拉时把归档区拉出来（对齐 TG 的手感）
+  void revealArchivedChats() {
+    if (showArchivedChats || archivedRoomIds.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    setState(() => showArchivedChats = true);
+  }
+
+  Future<void> setRoomArchived(Room room, bool archived) async {
+    final ids = archivedRoomIds.toList();
+    if (archived) {
+      if (!ids.contains(room.id)) ids.add(room.id);
+    } else {
+      ids.remove(room.id);
+    }
+    setState(() {
+      archivedRoomIds
+        ..clear()
+        ..addAll(ids);
+      if (archivedRoomIds.isEmpty) showArchivedChats = false;
+    });
+    await AppSettings.archivedRooms.setItem(ids);
+    if (!mounted) return;
+    final name = room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+            archived ? '已归档「$name」，下拉聊天列表可查看' : '已取消归档「$name」',
+          ),
+          action: SnackBarAction(
+            label: L10n.of(context).undo,
+            onPressed: () => setRoomArchived(room, !archived),
+          ),
+        ),
+      );
+  }
 
   void _updateRoomTags([_]) {
     roomTags.clear();
@@ -1127,6 +1218,7 @@ enum EditBundleAction { addToBundle, removeFromBundle }
 enum ChatContextAction {
   goToSpace,
   favorite,
+  archive,
   lowPriority,
   addTag,
   removeTag,

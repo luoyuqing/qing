@@ -22,10 +22,52 @@ import '../../widgets/adaptive_dialogs/user_dialog.dart';
 import '../../widgets/matrix.dart';
 import 'chat_list_header.dart';
 
-class ChatListViewBody extends StatelessWidget {
+class ChatListViewBody extends StatefulWidget {
   final ChatListController controller;
 
   const ChatListViewBody(this.controller, {super.key});
+
+  @override
+  State<ChatListViewBody> createState() => _ChatListViewBodyState();
+}
+
+class _ChatListViewBodyState extends State<ChatListViewBody> {
+  /// 顶部再往下拖多少像素就把归档区拉出来（一次手势内累计）
+  static const double _revealPullDistance = 64;
+
+  double _pullDownDistance = 0;
+
+  ChatListController get controller => widget.controller;
+
+  /// 聊天列表下拉展开归档（对齐 TG 的手感）
+  ///
+  /// 两种滚动物理都要处理：
+  /// - Android 的 Clamping：越过顶部会产生 OverscrollNotification，overscroll 为负；
+  /// - iOS 的 Bouncing：不产生 overscroll 通知，而是让 pixels 直接变成负数。
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    switch (notification) {
+      case OverscrollNotification():
+        if (notification.overscroll < 0 &&
+            notification.metrics.extentBefore <= 0) {
+          _pullDownDistance += -notification.overscroll;
+          if (_pullDownDistance >= _revealPullDistance) {
+            _pullDownDistance = 0;
+            controller.revealArchivedChats();
+          }
+        }
+      case ScrollUpdateNotification():
+        if (notification.metrics.pixels < -_revealPullDistance) {
+          _pullDownDistance = 0;
+          controller.revealArchivedChats();
+        }
+      case ScrollEndNotification():
+        _pullDownDistance = 0;
+      default:
+        break;
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +109,7 @@ class ChatListViewBody extends StatelessWidget {
           .where((s) => s.hasRoomUpdate)
           .rateLimit(const Duration(seconds: 1)),
       builder: (context, _) {
-        final rooms = controller.filteredRooms
+        final baseRooms = controller.filteredRooms
             .where(
               (room) =>
                   !AppSettings.hideRoomsInSpaces.value ||
@@ -75,191 +117,350 @@ class ChatListViewBody extends StatelessWidget {
             )
             .toList();
 
-        return CustomScrollView(
-          controller: controller.scrollController,
-          slivers: [
-            ChatListHeader(controller: controller),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                if (controller.isSearchMode) ...[
-                  SearchTitle(
-                    title: L10n.of(context).publicRooms,
-                    icon: const Icon(Icons.explore_outlined),
-                  ),
-                  PublicRoomsHorizontalList(publicRooms: publicRooms),
-                  SearchTitle(
-                    title: L10n.of(context).publicSpaces,
-                    icon: const Icon(Icons.workspaces_outlined),
-                  ),
-                  PublicRoomsHorizontalList(publicRooms: publicSpaces),
-                  SearchTitle(
-                    title: L10n.of(context).users,
-                    icon: const Icon(Icons.group_outlined),
-                  ),
-                  AnimatedContainer(
-                    clipBehavior: Clip.hardEdge,
-                    decoration: const BoxDecoration(),
-                    height:
-                        userSearchResult == null ||
-                            userSearchResult.results.isEmpty
-                        ? 0
-                        : 106,
-                    duration: FluffyThemes.animationDuration,
-                    curve: FluffyThemes.animationCurve,
-                    child: userSearchResult == null
-                        ? null
-                        : ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: userSearchResult.results.length,
-                            itemBuilder: (context, i) => _SearchItem(
-                              title:
-                                  userSearchResult.results[i].displayName ??
-                                  userSearchResult
-                                      .results[i]
-                                      .userId
-                                      .localpart ??
-                                  L10n.of(context).unknownDevice,
-                              avatar: userSearchResult.results[i].avatarUrl,
-                              onPressed: () => UserDialog.show(
-                                context: context,
-                                profile: userSearchResult.results[i],
+        // 搜索时连归档里的聊天一起搜（否则藏起来的会话永远搜不到）；
+        // 平时把归档从主列表摘掉，只在下拉或点开归档条之后才显示。
+        final searching = controller.isSearchMode;
+        final archivedRooms = <Room>[];
+        final regularRooms = <Room>[];
+        for (final room in baseRooms) {
+          if (!searching && controller.isArchived(room.id)) {
+            archivedRooms.add(room);
+          } else {
+            regularRooms.add(room);
+          }
+        }
+        final hasArchive = !searching && archivedRooms.isNotEmpty;
+        final archiveExpanded = hasArchive && controller.showArchivedChats;
+        final rooms = <Room>[
+          if (archiveExpanded) ...archivedRooms,
+          ...regularRooms,
+        ];
+        final archivedUnread = archivedRooms.fold<int>(
+          0,
+          (sum, room) =>
+              sum +
+              (room.isUnreadOrInvited
+                  ? (room.notificationCount > 0 ? room.notificationCount : 1)
+                  : 0),
+        );
+
+        return NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: CustomScrollView(
+            controller: controller.scrollController,
+            // 列表内容不满一屏时也要能下拉（归档就是靠下拉拉出来的）
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              ChatListHeader(controller: controller),
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  if (controller.isSearchMode) ...[
+                    SearchTitle(
+                      title: L10n.of(context).publicRooms,
+                      icon: const Icon(Icons.explore_outlined),
+                    ),
+                    PublicRoomsHorizontalList(publicRooms: publicRooms),
+                    SearchTitle(
+                      title: L10n.of(context).publicSpaces,
+                      icon: const Icon(Icons.workspaces_outlined),
+                    ),
+                    PublicRoomsHorizontalList(publicRooms: publicSpaces),
+                    SearchTitle(
+                      title: L10n.of(context).users,
+                      icon: const Icon(Icons.group_outlined),
+                    ),
+                    AnimatedContainer(
+                      clipBehavior: Clip.hardEdge,
+                      decoration: const BoxDecoration(),
+                      height:
+                          userSearchResult == null ||
+                              userSearchResult.results.isEmpty
+                          ? 0
+                          : 106,
+                      duration: FluffyThemes.animationDuration,
+                      curve: FluffyThemes.animationCurve,
+                      child: userSearchResult == null
+                          ? null
+                          : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: userSearchResult.results.length,
+                              itemBuilder: (context, i) => _SearchItem(
+                                title:
+                                    userSearchResult.results[i].displayName ??
+                                    userSearchResult
+                                        .results[i]
+                                        .userId
+                                        .localpart ??
+                                    L10n.of(context).unknownDevice,
+                                avatar: userSearchResult.results[i].avatarUrl,
+                                onPressed: () => UserDialog.show(
+                                  context: context,
+                                  profile: userSearchResult.results[i],
+                                ),
                               ),
                             ),
-                          ),
-                  ),
-                ],
-                if (client.rooms.isNotEmpty && !controller.isSearchMode)
-                  Container(
-                    height: 36 + 8 + 8,
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      shrinkWrap: true,
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        ...ActiveFilter.values
-                            .where((filter) => filter != ActiveFilter.tag)
-                            .map(
-                              (filter) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4.0,
-                                ),
-                                child: Center(
-                                  child: FilterChip(
-                                    selected: filter == controller.activeFilter,
-                                    onSelected: (_) => controller
-                                        .setActiveFilter(filter, null),
-                                    label: Text(
-                                      filter.toLocalizedString(context),
+                    ),
+                  ],
+                  if (client.rooms.isNotEmpty && !controller.isSearchMode)
+                    Container(
+                      height: 36 + 8 + 8,
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        shrinkWrap: true,
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          ...ActiveFilter.values
+                              .where((filter) => filter != ActiveFilter.tag)
+                              .map(
+                                (filter) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
+                                  ),
+                                  child: Center(
+                                    child: FilterChip(
+                                      selected: filter == controller.activeFilter,
+                                      onSelected: (_) => controller
+                                          .setActiveFilter(filter, null),
+                                      label: Text(
+                                        filter.toLocalizedString(context),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ...controller.roomTags.entries.map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4.0,
-                            ),
-                            child: Center(
-                              child: FilterChip(
-                                selected: entry.key == controller.activeTag,
-                                onSelected: (_) => controller.setActiveFilter(
-                                  ActiveFilter.tag,
-                                  entry.key,
-                                ),
-                                label: Text(entry.key.replaceFirst('u.', '')),
+                          ...controller.roomTags.entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4.0,
                               ),
+                              child: Center(
+                                child: FilterChip(
+                                  selected: entry.key == controller.activeTag,
+                                  onSelected: (_) => controller.setActiveFilter(
+                                    ActiveFilter.tag,
+                                    entry.key,
+                                  ),
+                                  label: Text(entry.key.replaceFirst('u.', '')),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (controller.isSearchMode)
+                    SearchTitle(
+                      title: L10n.of(context).chats,
+                      icon: const Icon(Icons.forum_outlined),
+                    ),
+                  if (client.prevBatch != null &&
+                      rooms.isEmpty &&
+                      !hasArchive &&
+                      !controller.isSearchMode) ...[
+                    Column(
+                      mainAxisAlignment: .center,
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Column(
+                              mainAxisSize: .min,
+                              children: [
+                                DummyChatListItem(
+                                  opacity: 0.5,
+                                  animate: false,
+                                ),
+                                DummyChatListItem(
+                                  opacity: 0.3,
+                                  animate: false,
+                                ),
+                              ],
+                            ),
+                            Icon(
+                              CupertinoIcons.chat_bubble_text_fill,
+                              size: 128,
+                              color: theme.colorScheme.secondary,
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            client.rooms.isEmpty
+                                ? L10n.of(context).noChatsFoundHere
+                                : L10n.of(context).noMoreChatsFound,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: theme.colorScheme.secondary,
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ],
+                ]),
+              ),
+              // 只有「一条房间都还没有」时才需要骨架屏。
+              // 杀进程重进时 prevBatch 一定是 null，但本地库里房间是齐的，
+              // 这时再先刷 8 行灰块（每行还带转圈）就会变成启动页与主页之间
+              // 一闪而过的过程页，所以这里以「有没有房间」为准。
+              if (client.prevBatch == null && client.rooms.isEmpty)
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) => DummyChatListItem(
+                      opacity: (dummyChatCount - i) / dummyChatCount,
+                      animate: false,
+                    ),
+                    childCount: dummyChatCount,
                   ),
-                if (controller.isSearchMode)
-                  SearchTitle(
-                    title: L10n.of(context).chats,
-                    icon: const Icon(Icons.forum_outlined),
+                ),
+              if (client.prevBatch != null || client.rooms.isNotEmpty)
+                SliverSafeArea(
+                  top: false,
+                  sliver: SliverList.builder(
+                    itemCount: rooms.length + (hasArchive ? 1 : 0),
+                    itemBuilder: (BuildContext context, int i) {
+                      if (hasArchive && i == 0) {
+                        return ArchivedChatsTile(
+                          chatCount: archivedRooms.length,
+                          unreadCount: archivedUnread,
+                          expanded: archiveExpanded,
+                          onTap: controller.toggleArchivedChats,
+                        );
+                      }
+                      final room = rooms[hasArchive ? i - 1 : i];
+                      final space = spaceDelegateCandidates[room.id];
+                      return ChatListItem(
+                        room,
+                        space: space,
+                        key: Key('chat_list_item_${room.id}'),
+                        filter: filter,
+                        onTap: () => controller.onChatTap(room),
+                        onLongPress: (context) =>
+                            controller.chatContextAction(room, context, space),
+                        activeChat: controller.activeChat == room.id,
+                      );
+                    },
                   ),
-                if (client.prevBatch != null &&
-                    rooms.isEmpty &&
-                    !controller.isSearchMode) ...[
-                  Column(
-                    mainAxisAlignment: .center,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 归档条：平时挡在聊天列表最上面一行，点一下（或下拉）展开归档里的会话
+class ArchivedChatsTile extends StatelessWidget {
+  final int chatCount;
+  final int unreadCount;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  const ArchivedChatsTile({
+    super.key,
+    required this.chatCount,
+    required this.unreadCount,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
+      child: Material(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(70),
+            width: 0.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        color: theme.colorScheme.surfaceContainerLowest,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    Icons.archive_outlined,
+                    size: 21,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Column(
-                            mainAxisSize: .min,
-                            children: [
-                              DummyChatListItem(opacity: 0.5, animate: false),
-                              DummyChatListItem(opacity: 0.3, animate: false),
-                            ],
-                          ),
-                          Icon(
-                            CupertinoIcons.chat_bubble_text_fill,
-                            size: 128,
-                            color: theme.colorScheme.secondary,
-                          ),
-                        ],
+                      Text(
+                        '归档',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          client.rooms.isEmpty
-                              ? L10n.of(context).noChatsFoundHere
-                              : L10n.of(context).noMoreChatsFound,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: theme.colorScheme.secondary,
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        expanded
+                            ? '$chatCount 个聊天 · 点此收起'
+                            : '$chatCount 个聊天 · 下拉展开',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ]),
-            ),
-            // 只有「一条房间都还没有」时才需要骨架屏。
-            // 杀进程重进时 prevBatch 一定是 null，但本地库里房间是齐的，
-            // 这时再先刷 8 行灰块（每行还带转圈）就会变成启动页与主页之间
-            // 一闪而过的过程页，所以这里以「有没有房间」为准。
-            if (client.prevBatch == null && client.rooms.isEmpty)
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => DummyChatListItem(
-                    opacity: (dummyChatCount - i) / dummyChatCount,
-                    animate: false,
+                ),
+                if (unreadCount > 0)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 20),
+                    height: 20,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                  childCount: dummyChatCount,
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 22,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            if (client.prevBatch != null || client.rooms.isNotEmpty)
-              SliverSafeArea(
-                top: false,
-                sliver: SliverList.builder(
-                  itemCount: rooms.length,
-                  itemBuilder: (BuildContext context, int i) {
-                    final room = rooms[i];
-                    final space = spaceDelegateCandidates[room.id];
-                    return ChatListItem(
-                      room,
-                      space: space,
-                      key: Key('chat_list_item_${room.id}'),
-                      filter: filter,
-                      onTap: () => controller.onChatTap(room),
-                      onLongPress: (context) =>
-                          controller.chatContextAction(room, context, space),
-                      activeChat: controller.activeChat == room.id,
-                    );
-                  },
-                ),
-              ),
-          ],
-        );
-      },
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
