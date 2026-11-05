@@ -79,7 +79,7 @@ class ChatList extends StatefulWidget {
 }
 
 class ChatListController extends State<ChatList>
-    with TickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
+    with TickerProviderStateMixin, RouteAware {
   StreamSubscription? _intentDataStreamSubscription;
 
   StreamSubscription? _intentFileStreamSubscription;
@@ -414,7 +414,6 @@ class ChatListController extends State<ChatList>
   void initState() {
     _initReceiveSharingIntent();
     archive.addListener(_onArchiveChanged);
-    WidgetsBinding.instance.addObserver(this);
     // Qing：启动按需取数应答器（AI 要数据时才读手机，不主动上传）
     DeviceHubPoller.start();
 
@@ -488,7 +487,6 @@ class ChatListController extends State<ChatList>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     archive.removeListener(_onArchiveChanged);
     _archiveToastTimer?.cancel();
     _intentDataStreamSubscription?.cancel();
@@ -502,15 +500,6 @@ class ChatListController extends State<ChatList>
     scrolledToTop.dispose();
     _clientStream.close();
     super.dispose();
-  }
-
-  /// 退到后台就把归档入口收回去：回到桌面再进来时不会停在「已经露出来」的状态，
-  /// 归档里的敏感会话不会因为上次看过就一直摆在列表顶上。
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused && archiveEntryVisible) {
-      setState(() => archiveEntryVisible = false);
-    }
   }
 
   void _processPushHelperCrashReport() {
@@ -929,14 +918,16 @@ class ChatListController extends State<ChatList>
     setState(() => archiveEntryVisible = true);
   }
 
-  /// 点归档入口 → 单独的归档页；回来时把入口收起来，继续保持「平时看不见」
-  Future<void> openArchive() async {
-    await context.push('/rooms/archived');
-    if (!mounted) return;
-    if (archiveEntryVisible) {
-      setState(() => archiveEntryVisible = false);
-    }
+  /// 往上滚（内容往下走）时把归档入口收回去
+  void hideArchiveEntry() {
+    if (!archiveEntryVisible) return;
+    setState(() => archiveEntryVisible = false);
   }
+
+  /// 点归档入口 → 单独的归档页
+  ///
+  /// 回来后**不主动收起**：显示/隐藏只由下滑、上划手势决定。
+  Future<void> openArchive() => context.push('/rooms/archived');
 
   Future<void> setRoomArchived(Room room, bool archived) async {
     await archive.setArchived(room.id, archived);

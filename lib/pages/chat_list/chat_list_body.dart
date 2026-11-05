@@ -32,14 +32,20 @@ class ChatListViewBody extends StatefulWidget {
 }
 
 class _ChatListViewBodyState extends State<ChatListViewBody> {
-  /// 顶部再往下拖多少像素就把归档区拉出来（一次手势内累计）
+  /// 顶部再往下拖多少像素就把归档卡片拉出来（一次手势内累计）
   static const double _revealPullDistance = 64;
+
+  /// 往上滚多少像素就把归档卡片收回去
+  ///
+  /// 用很小的阈值而不是等卡片完全滚出屏幕：卡片还在视野里的时候开始收，
+  /// 高度动画看起来就是「跟着手指被推上去」，等它滚没了再收反而会跳一下。
+  static const double _hideScrollDistance = 8;
 
   double _pullDownDistance = 0;
 
   ChatListController get controller => widget.controller;
 
-  /// 聊天列表下拉展开归档（对齐 TG 的手感）
+  /// 归档卡片：下滑出现、上划隐藏（对齐 TG 的手感）
   ///
   /// 两种滚动物理都要处理：
   /// - Android 的 Clamping：越过顶部会产生 OverscrollNotification，overscroll 为负；
@@ -60,6 +66,10 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
         if (notification.metrics.pixels < -_revealPullDistance) {
           _pullDownDistance = 0;
           controller.revealArchiveEntry();
+        } else if (notification.metrics.pixels > _hideScrollDistance) {
+          // 上划（内容往上走）→ 收起
+          _pullDownDistance = 0;
+          controller.hideArchiveEntry();
         }
       case ScrollEndNotification():
         _pullDownDistance = 0;
@@ -140,6 +150,8 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
             archivedRooms.isNotEmpty &&
             !searching &&
             (controller.archiveEntryVisible || everythingArchived);
+        // 归档卡片是否需要在树里（隐藏时高度为 0，但保留动画载体）
+        final hasArchiveCard = archivedRooms.isNotEmpty && !searching;
         final archivedUnread = archivedRooms.fold<int>(
           0,
           (sum, room) =>
@@ -321,20 +333,32 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
                     childCount: dummyChatCount,
                   ),
                 ),
+              // 归档卡片常驻在树里，只做高度动画：
+              // 直接插入/移除会因为上方高度突变让列表跳一下，
+              // 而「上划收起」本来就在滚动过程中发生，跳动会很明显。
+              if (hasArchiveCard)
+                SliverToBoxAdapter(
+                  child: AnimatedSize(
+                    duration: FluffyThemes.animationDuration,
+                    curve: FluffyThemes.animationCurve,
+                    alignment: Alignment.topCenter,
+                    clipBehavior: Clip.hardEdge,
+                    child: showArchiveEntry
+                        ? ArchivedChatsTile(
+                            chatCount: archivedRooms.length,
+                            unreadCount: archivedUnread,
+                            onTap: controller.openArchive,
+                          )
+                        : const SizedBox(width: double.infinity, height: 0),
+                  ),
+                ),
               if (client.prevBatch != null || client.rooms.isNotEmpty)
                 SliverSafeArea(
                   top: false,
                   sliver: SliverList.builder(
-                    itemCount: rooms.length + (showArchiveEntry ? 1 : 0),
+                    itemCount: rooms.length,
                     itemBuilder: (BuildContext context, int i) {
-                      if (showArchiveEntry && i == 0) {
-                        return ArchivedChatsTile(
-                          chatCount: archivedRooms.length,
-                          unreadCount: archivedUnread,
-                          onTap: controller.openArchive,
-                        );
-                      }
-                      final room = rooms[showArchiveEntry ? i - 1 : i];
+                      final room = rooms[i];
                       final space = spaceDelegateCandidates[room.id];
                       return ChatListItem(
                         room,
