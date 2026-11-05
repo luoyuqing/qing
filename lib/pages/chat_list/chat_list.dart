@@ -323,10 +323,15 @@ class ChatListController extends State<ChatList>
   void addAccountAction() => context.go('/rooms/settings/account');
 
   void _onScroll() {
-    final newScrolledToTop = scrollController.position.pixels <= 0;
+    final pixels = scrollController.position.pixels;
+    final newScrolledToTop = pixels <= 0;
     if (newScrolledToTop != scrolledToTop.value) {
       scrolledToTop.value = newScrolledToTop;
     }
+    // 上划收起归档卡片。
+    // 这里再挂一道：ScrollNotification 在某些时序（卡片高度变化引起的
+    // 位置修正）不一定按预期送达，滚动控制器监听则每次位移都会走到。
+    if (pixels > 4) hideArchiveEntry();
   }
 
   Future<void> editSpace(BuildContext context, String spaceId) async {

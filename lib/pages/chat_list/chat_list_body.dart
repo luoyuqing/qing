@@ -39,7 +39,7 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
   ///
   /// 用很小的阈值而不是等卡片完全滚出屏幕：卡片还在视野里的时候开始收，
   /// 高度动画看起来就是「跟着手指被推上去」，等它滚没了再收反而会跳一下。
-  static const double _hideScrollDistance = 8;
+  static const double _hideScrollDistance = 4;
 
   double _pullDownDistance = 0;
 
@@ -69,6 +69,11 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
         } else if (notification.metrics.pixels > _hideScrollDistance) {
           // 上划（内容往上走）→ 收起
           _pullDownDistance = 0;
+          controller.hideArchiveEntry();
+        }
+      case UserScrollNotification():
+        // 手指方向最直接的信号：reverse = 往上推（看后面的聊天）→ 收起
+        if (notification.direction == ScrollDirection.reverse) {
           controller.hideArchiveEntry();
         }
       case ScrollEndNotification():
@@ -139,17 +144,15 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
         final archivedRooms = client.rooms
             .where((room) => controller.isArchived(room.id))
             .toList();
-        // 兜底：所有会话都被归档时把卡片顶上，否则主列表会空得莫名其妙。
-        // 注意不能用「当前筛选没结果」来判断 —— 切到「群组」而恰好没有群时
-        // 也会命中，那会让归档卡片莫名其妙冒出来。
+        // 兜底：所有会话都被归档时，主列表会空 —— 但**不能**用「强制显示卡片」
+        // 来兜底，那会让「上划隐藏」直接失效（卡片被兜底条件钉死）。
+        // 这里只把它用于空态文案，显示与否仍然只由手势控制。
         final everythingArchived =
             client.rooms.isNotEmpty &&
             !client.rooms.any((room) => !controller.isArchived(room.id));
-        // 平时完全看不见；只有下拉露出来，或者全部归档时兜底
+        // 显示与否只看手势状态
         final showArchiveEntry =
-            archivedRooms.isNotEmpty &&
-            !searching &&
-            (controller.archiveEntryVisible || everythingArchived);
+            archivedRooms.isNotEmpty && !searching && controller.archiveEntryVisible;
         // 归档卡片是否需要在树里（隐藏时高度为 0，但保留动画载体）
         final hasArchiveCard = archivedRooms.isNotEmpty && !searching;
         final archivedUnread = archivedRooms.fold<int>(
@@ -304,7 +307,9 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Text(
-                            client.rooms.isEmpty
+                            everythingArchived
+                                ? '全部聊天都在归档里 · 下拉可查看'
+                                : client.rooms.isEmpty
                                 ? L10n.of(context).noChatsFoundHere
                                 : L10n.of(context).noMoreChatsFound,
                             textAlign: TextAlign.center,
