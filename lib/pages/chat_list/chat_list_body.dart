@@ -129,11 +129,17 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
         final archivedRooms = client.rooms
             .where((room) => controller.isArchived(room.id))
             .toList();
-        // 平时完全看不见；只有下拉露出来，或者列表被全部归档清空时才顶上兜底
+        // 兜底：所有会话都被归档时把卡片顶上，否则主列表会空得莫名其妙。
+        // 注意不能用「当前筛选没结果」来判断 —— 切到「群组」而恰好没有群时
+        // 也会命中，那会让归档卡片莫名其妙冒出来。
+        final everythingArchived =
+            client.rooms.isNotEmpty &&
+            !client.rooms.any((room) => !controller.isArchived(room.id));
+        // 平时完全看不见；只有下拉露出来，或者全部归档时兜底
         final showArchiveEntry =
             archivedRooms.isNotEmpty &&
             !searching &&
-            (controller.archiveEntryVisible || rooms.isEmpty);
+            (controller.archiveEntryVisible || everythingArchived);
         final archivedUnread = archivedRooms.fold<int>(
           0,
           (sum, room) =>
