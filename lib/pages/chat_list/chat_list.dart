@@ -37,8 +37,9 @@ import 'package:matrix/matrix.dart' as sdk;
 import 'package:matrix/matrix.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
-import '../../../utils/account_bundles.dart';
 import '../../config/setting_keys.dart';
+import '../../utils/account_bundles.dart';
+import '../../utils/chat_archive.dart';
 import '../../utils/url_launcher.dart';
 import '../../widgets/matrix.dart';
 
@@ -412,7 +413,7 @@ class ChatListController extends State<ChatList>
   @override
   void initState() {
     _initReceiveSharingIntent();
-    _loadArchivedRooms();
+    archive.addListener(_onArchiveChanged);
     WidgetsBinding.instance.addObserver(this);
     // Qing：启动按需取数应答器（AI 要数据时才读手机，不主动上传）
     DeviceHubPoller.start();
@@ -488,6 +489,8 @@ class ChatListController extends State<ChatList>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    archive.removeListener(_onArchiveChanged);
+    _archiveToastTimer?.cancel();
     _intentDataStreamSubscription?.cancel();
     _intentFileStreamSubscription?.cancel();
     _callEventSubscription?.cancel();
@@ -501,12 +504,12 @@ class ChatListController extends State<ChatList>
     super.dispose();
   }
 
-  /// 退到后台就把归档区收回去：回到桌面再进来时不会停在「已经展开」的状态，
-  /// 归档里的敏感会话不会因为上次看过就一直晾在列表里。
+  /// 退到后台就把归档入口收回去：回到桌面再进来时不会停在「已经露出来」的状态，
+  /// 归档里的敏感会话不会因为上次看过就一直摆在列表顶上。
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused && showArchivedChats) {
-      setState(() => showArchivedChats = false);
+    if (state == AppLifecycleState.paused && archiveEntryVisible) {
+      setState(() => archiveEntryVisible = false);
     }
   }
 
@@ -898,65 +901,83 @@ class ChatListController extends State<ChatList>
 
   Map<String, int> roomTags = {};
 
-  /// Qing v1.21.7 · 归档的聊天（本机偏好，不上传）
+  /// Qing v1.21.8 · 归档清单（本机偏好，不上传）
   ///
-  /// 存 roomId 而不是 Room 对象：sync 里房间对象会被替换，
-  /// 存 ID 才能在任意一次 rebuild 里稳定判断。
-  final Set<String> archivedRoomIds = <String>{};
+  /// 清单本身在 [ChatArchive] 里：归档页是另一条路由，两边要共用一个实例，
+  /// 在那边取消归档后主列表才能立刻跟着变。
+  final ChatArchive archive = ChatArchive.instance;
 
-  /// 归档区当前是否展开。默认收起 —— 平时就是「不存在的聊天」。
-  bool showArchivedChats = false;
+  /// 顶部那条归档入口是否露出。
+  ///
+  /// 默认 **false** —— 平时完全看不见，只有在聊天列表顶端继续下拉才出来，
+  /// 和 TG 安卓版一样。
+  bool archiveEntryVisible = false;
 
-  bool isArchived(String roomId) => archivedRoomIds.contains(roomId);
+  bool isArchived(String roomId) => archive.contains(roomId);
 
-  void _loadArchivedRooms() {
-    final stored = AppSettings.archivedRooms.value;
-    archivedRoomIds
-      ..clear()
-      ..addAll(stored);
+  void _onArchiveChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (archive.isEmpty) archiveEntryVisible = false;
+    });
   }
 
-  void toggleArchivedChats() {
-    setState(() => showArchivedChats = !showArchivedChats);
-  }
-
-  /// 聊天列表顶部继续下拉时把归档区拉出来（对齐 TG 的手感）
-  void revealArchivedChats() {
-    if (showArchivedChats || archivedRoomIds.isEmpty) return;
+  /// 聊天列表顶部继续下拉时把归档入口拉出来
+  void revealArchiveEntry() {
+    if (archiveEntryVisible || archive.isEmpty) return;
     HapticFeedback.mediumImpact();
-    setState(() => showArchivedChats = true);
+    setState(() => archiveEntryVisible = true);
+  }
+
+  /// 点归档入口 → 单独的归档页；回来时把入口收起来，继续保持「平时看不见」
+  Future<void> openArchive() async {
+    await context.push('/rooms/archived');
+    if (!mounted) return;
+    if (archiveEntryVisible) {
+      setState(() => archiveEntryVisible = false);
+    }
   }
 
   Future<void> setRoomArchived(Room room, bool archived) async {
-    final ids = archivedRoomIds.toList();
-    if (archived) {
-      if (!ids.contains(room.id)) ids.add(room.id);
-    } else {
-      ids.remove(room.id);
-    }
-    setState(() {
-      archivedRoomIds
-        ..clear()
-        ..addAll(ids);
-      if (archivedRoomIds.isEmpty) showArchivedChats = false;
-    });
-    await AppSettings.archivedRooms.setItem(ids);
+    await archive.setArchived(room.id, archived);
     if (!mounted) return;
+    _showArchiveToast(room, archived);
+  }
+
+  Timer? _archiveToastTimer;
+
+  /// 归档提示条
+  ///
+  /// 为什么不用 SnackBar 自己的 duration 收尾：Flutter 在
+  /// `snackBar.action != null && MediaQuery.accessibleNavigationOf(context)`
+  /// 时**故意不自动关闭**（无障碍要求动作按钮可读）。这台机器上就正好命中了，
+  /// 结果提示条一直挂在底部、既不走也没有关闭按钮。
+  /// 所以这里自己再挂一个计时器强制收走，并给一个关闭按钮兜底。
+  void _showArchiveToast(Room room, bool archived) {
     final name = room.getLocalizedDisplayname(MatrixLocals(L10n.of(context)));
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 4),
-          content: Text(
-            archived ? '已归档「$name」，下拉聊天列表可查看' : '已取消归档「$name」',
-          ),
-          action: SnackBarAction(
-            label: L10n.of(context).undo,
-            onPressed: () => setRoomArchived(room, !archived),
-          ),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        showCloseIcon: true,
+        content: Text(
+          archived ? '已归档「$name」，下拉聊天列表可查看' : '已取消归档「$name」',
         ),
-      );
+        action: archived
+            ? SnackBarAction(
+                label: L10n.of(context).undo,
+                // 撤销不再弹第二条提示，直接把人放回去
+                onPressed: () => archive.setArchived(room.id, false),
+              )
+            : null,
+      ),
+    );
+    _archiveToastTimer?.cancel();
+    _archiveToastTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+    });
   }
 
   void _updateRoomTags([_]) {

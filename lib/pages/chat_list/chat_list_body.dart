@@ -53,13 +53,13 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
           _pullDownDistance += -notification.overscroll;
           if (_pullDownDistance >= _revealPullDistance) {
             _pullDownDistance = 0;
-            controller.revealArchivedChats();
+            controller.revealArchiveEntry();
           }
         }
       case ScrollUpdateNotification():
         if (notification.metrics.pixels < -_revealPullDistance) {
           _pullDownDistance = 0;
-          controller.revealArchivedChats();
+          controller.revealArchiveEntry();
         }
       case ScrollEndNotification():
         _pullDownDistance = 0;
@@ -117,24 +117,23 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
             )
             .toList();
 
-        // 搜索时连归档里的聊天一起搜（否则藏起来的会话永远搜不到）；
-        // 平时把归档从主列表摘掉，只在下拉或点开归档条之后才显示。
+        // 归档的会话一律不进主列表（搜索时例外：藏起来的会话也得搜得到）。
         final searching = controller.isSearchMode;
-        final archivedRooms = <Room>[];
-        final regularRooms = <Room>[];
-        for (final room in baseRooms) {
-          if (!searching && controller.isArchived(room.id)) {
-            archivedRooms.add(room);
-          } else {
-            regularRooms.add(room);
-          }
-        }
-        final hasArchive = !searching && archivedRooms.isNotEmpty;
-        final archiveExpanded = hasArchive && controller.showArchivedChats;
-        final rooms = <Room>[
-          if (archiveExpanded) ...archivedRooms,
-          ...regularRooms,
-        ];
+        final rooms = searching
+            ? baseRooms
+            : baseRooms
+                  .where((room) => !controller.isArchived(room.id))
+                  .toList();
+
+        // 归档卡片条按「这台机器上归档了多少」算，不受当前筛选影响
+        final archivedRooms = client.rooms
+            .where((room) => controller.isArchived(room.id))
+            .toList();
+        // 平时完全看不见；只有下拉露出来，或者列表被全部归档清空时才顶上兜底
+        final showArchiveEntry =
+            archivedRooms.isNotEmpty &&
+            !searching &&
+            (controller.archiveEntryVisible || rooms.isEmpty);
         final archivedUnread = archivedRooms.fold<int>(
           0,
           (sum, room) =>
@@ -256,7 +255,7 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
                     ),
                   if (client.prevBatch != null &&
                       rooms.isEmpty &&
-                      !hasArchive &&
+                      !showArchiveEntry &&
                       !controller.isSearchMode) ...[
                     Column(
                       mainAxisAlignment: .center,
@@ -320,17 +319,16 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
                 SliverSafeArea(
                   top: false,
                   sliver: SliverList.builder(
-                    itemCount: rooms.length + (hasArchive ? 1 : 0),
+                    itemCount: rooms.length + (showArchiveEntry ? 1 : 0),
                     itemBuilder: (BuildContext context, int i) {
-                      if (hasArchive && i == 0) {
+                      if (showArchiveEntry && i == 0) {
                         return ArchivedChatsTile(
                           chatCount: archivedRooms.length,
                           unreadCount: archivedUnread,
-                          expanded: archiveExpanded,
-                          onTap: controller.toggleArchivedChats,
+                          onTap: controller.openArchive,
                         );
                       }
-                      final room = rooms[hasArchive ? i - 1 : i];
+                      final room = rooms[showArchiveEntry ? i - 1 : i];
                       final space = spaceDelegateCandidates[room.id];
                       return ChatListItem(
                         room,
@@ -353,18 +351,19 @@ class _ChatListViewBodyState extends State<ChatListViewBody> {
   }
 }
 
-/// 归档条：平时挡在聊天列表最上面一行，点一下（或下拉）展开归档里的会话
+/// 归档入口卡片
+///
+/// 平时它**不在列表里**（[ChatListViewBody] 只有在下拉露出或列表被归档清空时
+/// 才把它插进来）；点它进独立的归档页，和 TG 安卓版一样。
 class ArchivedChatsTile extends StatelessWidget {
   final int chatCount;
   final int unreadCount;
-  final bool expanded;
   final VoidCallback onTap;
 
   const ArchivedChatsTile({
     super.key,
     required this.chatCount,
     required this.unreadCount,
-    required this.expanded,
     required this.onTap,
   });
 
@@ -418,9 +417,7 @@ class ArchivedChatsTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        expanded
-                            ? '$chatCount 个聊天 · 点此收起'
-                            : '$chatCount 个聊天 · 下拉展开',
+                        '$chatCount 个聊天',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -448,13 +445,11 @@ class ArchivedChatsTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Icon(
-                    expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 22,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.chevron_right,
+                  size: 22,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ],
             ),

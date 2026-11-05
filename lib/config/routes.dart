@@ -12,6 +12,7 @@ import 'package:fluffychat/pages/chat/chat.dart';
 import 'package:fluffychat/pages/chat_access_settings/chat_access_settings_controller.dart';
 import 'package:fluffychat/pages/chat_details/chat_details.dart';
 import 'package:fluffychat/pages/chat_encryption_settings/chat_encryption_settings.dart';
+import 'package:fluffychat/pages/chat_list/archived_chats_page.dart';
 import 'package:fluffychat/pages/chat_list/chat_list.dart';
 import 'package:fluffychat/pages/chat_members/chat_members.dart';
 import 'package:fluffychat/pages/chat_permissions_settings/chat_permissions_settings.dart';
@@ -174,6 +175,17 @@ abstract class AppRoutes {
               path: 'memory',
               pageBuilder: (context, state) =>
                   defaultPageBuilder(context, state, const MemoryPage()),
+              redirect: loggedOutRedirect,
+            ),
+            // Qing：本机归档（下拉聊天列表露出的归档卡片点进来）
+            // 必须排在 ':roomid' 前面，否则会被当成房间 ID 匹配掉
+            GoRoute(
+              path: 'archived',
+              pageBuilder: (context, state) => defaultPageBuilder(
+                context,
+                state,
+                const ArchivedChatsPage(),
+              ),
               redirect: loggedOutRedirect,
             ),
             GoRoute(
