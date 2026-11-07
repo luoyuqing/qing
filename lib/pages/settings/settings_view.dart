@@ -11,6 +11,7 @@ import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
 import 'package:fluffychat/pages/settings_agent/usage_page.dart';
+import 'package:fluffychat/pages/settings_services/services_page.dart';
 import 'package:fluffychat/utils/app_update_service.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -293,6 +294,14 @@ class SettingsView extends StatelessWidget {
               subtitle: const Text('CPU、内存、磁盘、服务与容器的实时占用'),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ServerStatusPage()),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.apps_outlined),
+              title: const Text('服务'),
+              subtitle: const Text('本机管理页面 · 一次性票据打开'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServicesPage()),
               ),
             ),
             ListTile(

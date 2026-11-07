@@ -7,7 +7,7 @@ name: fluffychat
 description: Qing —— 个人 AI 助理客户端（Flutter + Matrix，接自建 agent 后端）。
 publish_to: none
 # On version bump please also increase the build number (for F-Droid)
-version: 1.21.13+52
+version: 1.21.15+53
 
 environment:
   sdk: ">=3.11.1 <4.0.0"
@@ -93,6 +93,7 @@ dependencies:
   uuid: ^4.6.0
   video_player: ^2.14.1
   wakelock_plus: ^1.8.0
+  webview_flutter: ^4.13.0
 
 dev_dependencies:
   dart_code_linter: ^4.4.2
