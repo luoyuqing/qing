@@ -100,6 +100,7 @@ class ServiceItem {
     required this.path,
     this.desc = '',
     this.icon = 'apps',
+    this.group = 'local',
   });
 
   final String id;
@@ -109,6 +110,10 @@ class ServiceItem {
   final String desc;
   final String icon;
 
+  /// 服务页分组标识：local = 本机服务，web = 外网服务。
+  /// 由服务端 catalog 下发，App 不认识的值按原字符串单独成组。
+  final String group;
+
   factory ServiceItem.fromJson(Map<String, dynamic> json) => ServiceItem(
         id: (json['id'] ?? '').toString(),
         name: (json['name'] ?? json['id'] ?? '服务').toString(),
@@ -116,6 +121,7 @@ class ServiceItem {
         path: (json['path'] ?? '/').toString(),
         desc: (json['desc'] ?? '').toString(),
         icon: (json['icon'] ?? 'apps').toString(),
+        group: (json['group'] ?? 'local').toString(),
       );
 
   IconData get iconData => switch (icon) {
@@ -123,6 +129,9 @@ class ServiceItem {
         'subtitles' => Icons.subtitles_outlined,
         'monitor' => Icons.monitor_heart_outlined,
         'storage' => Icons.storage_outlined,
+        'cloud' => Icons.cloud_outlined,
+        'book' => Icons.auto_stories_outlined,
+        'bookmark' => Icons.bookmarks_outlined,
         _ => Icons.apps_outlined,
       };
 }
