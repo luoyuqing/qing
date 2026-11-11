@@ -18,11 +18,16 @@ class ServiceWebViewPage extends StatefulWidget {
     required this.title,
     required this.hostname,
     required this.url,
+    this.allowExternal = false,
   });
 
   final String title;
   final String hostname;
   final String url;
+
+  /// 收藏夹条目为 true：允许打开任意 http/https 外站；
+  /// 服务页卡片保持 false，只放行 *.3585616.xyz。
+  final bool allowExternal;
 
   @override
   State<ServiceWebViewPage> createState() => _ServiceWebViewPageState();
@@ -34,7 +39,11 @@ class _ServiceWebViewPageState extends State<ServiceWebViewPage> {
 
   bool _allowed(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);
-    if (uri == null || uri.scheme != 'https') return false;
+    if (uri == null) return false;
+    if (widget.allowExternal) {
+      return uri.scheme == 'https' || uri.scheme == 'http';
+    }
+    if (uri.scheme != 'https') return false;
     return ServiceClient.isAllowedHost(uri.host);
   }
 

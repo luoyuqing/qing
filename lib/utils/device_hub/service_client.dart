@@ -90,6 +90,109 @@ class ServiceClient {
 
   /// 退出登录 / 切换账号时由页面调用 WebViewCookieManager().clearCookies()，
   /// 这里不碰 WebView 依赖，保持 client 纯粹的 HTTP 职责。
+
+  static Future<Map<String, dynamic>> _postJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final resp = await _http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: await _headers(),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
+    Map<String, dynamic> data = const {};
+    try {
+      if (resp.bodyBytes.isNotEmpty) {
+        data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (_) {
+      // 非 JSON 响应按 HTTP 状态报错即可
+    }
+    if (resp.statusCode != 200) {
+      final msg = data['error']?.toString();
+      throw Exception(msg?.isNotEmpty == true ? msg : 'HTTP ${resp.statusCode}');
+    }
+    return data;
+  }
+
+  /// GET /svc/fav/list —— 收藏夹条目（顺序由服务端 sort 决定）
+  static Future<List<FavItem>> favList() async {
+    final resp = await _http
+        .get(Uri.parse('$baseUrl/svc/fav/list'), headers: await _headers())
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) {
+      throw Exception('收藏列表读取失败（HTTP ${resp.statusCode}）');
+    }
+    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    return (data['items'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => FavItem.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+        .where((f) => f.url.isNotEmpty)
+        .toList();
+  }
+
+  static Future<FavItem> favAdd({
+    required String name,
+    required String url,
+    String icon = '',
+  }) async {
+    final data = await _postJson('/svc/fav/add', {
+      'name': name,
+      'url': url,
+      'icon': icon,
+    });
+    final item = data['item'];
+    if (item is! Map) throw Exception('服务端未返回收藏条目');
+    return FavItem.fromJson(item.map((k, v) => MapEntry(k.toString(), v)));
+  }
+
+  static Future<void> favDel(int id) => _postJson('/svc/fav/del', {'id': id});
+
+  static Future<void> favOrder(List<int> ids) =>
+      _postJson('/svc/fav/order', {'ids': ids});
+
+  /// 本机服务的自定义顺序（服务端存 settings.svc_order_local）
+  static Future<void> saveLocalOrder(List<String> ids) =>
+      _postJson('/svc/order', {'ids': ids});
+}
+
+/// 一个网页收藏条目
+class FavItem {
+  const FavItem({
+    required this.id,
+    required this.name,
+    required this.url,
+    this.icon = '',
+  });
+
+  final int id;
+  final String name;
+  final String url;
+  final String icon;
+
+  factory FavItem.fromJson(Map<String, dynamic> json) => FavItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: (json['name'] ?? '').toString(),
+        url: (json['url'] ?? '').toString(),
+        icon: (json['icon'] ?? '').toString(),
+      );
+
+  Uri? get uri => Uri.tryParse(url);
+
+  String get host {
+    final u = uri;
+    if (u == null) return url;
+    final h = u.host;
+    return h.startsWith('www.') ? h.substring(4) : h;
+  }
+
+  String get initial {
+    final s = name.trim().isNotEmpty ? name.trim() : host;
+    if (s.isEmpty) return '?';
+    return String.fromCharCode(s.runes.first).toUpperCase();
+  }
 }
 
 class ServiceItem {
@@ -101,6 +204,7 @@ class ServiceItem {
     this.desc = '',
     this.icon = 'apps',
     this.group = 'local',
+    this.type = 'page',
   });
 
   final String id;
@@ -114,6 +218,9 @@ class ServiceItem {
   /// 由服务端 catalog 下发，App 不认识的值按原字符串单独成组。
   final String group;
 
+  /// page = 普通页面卡片；bookmarks = 原生收藏列表
+  final String type;
+
   factory ServiceItem.fromJson(Map<String, dynamic> json) => ServiceItem(
         id: (json['id'] ?? '').toString(),
         name: (json['name'] ?? json['id'] ?? '服务').toString(),
@@ -122,6 +229,7 @@ class ServiceItem {
         desc: (json['desc'] ?? '').toString(),
         icon: (json['icon'] ?? 'apps').toString(),
         group: (json['group'] ?? 'local').toString(),
+        type: (json['type'] ?? 'page').toString(),
       );
 
   IconData get iconData => switch (icon) {
