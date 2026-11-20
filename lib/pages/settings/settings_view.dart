@@ -11,7 +11,6 @@ import 'package:fluffychat/pages/settings_device_hub/server_status_page.dart';
 import 'package:fluffychat/pages/settings_agent/model_page.dart';
 import 'package:fluffychat/pages/settings_agent/plugins_page.dart';
 import 'package:fluffychat/pages/settings_agent/usage_page.dart';
-import 'package:fluffychat/pages/settings_services/services_page.dart';
 import 'package:fluffychat/utils/app_update_service.dart';
 import 'package:fluffychat/utils/fluffy_share.dart';
 import 'package:fluffychat/utils/platform_infos.dart';
@@ -279,6 +278,15 @@ class SettingsView extends StatelessWidget {
               child: QingSectionTitle('Qing'),
             ),
             ListTile(
+              leading: const Icon(Icons.psychology_outlined),
+              title: const Text('记忆'),
+              subtitle: const Text('记忆 · 画像 · 技能 · 人设'),
+              tileColor: activeRoute.startsWith('/rooms/memory')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/memory'),
+            ),
+            ListTile(
               leading: const Icon(Icons.memory_outlined),
               title: const Text('设备数据'),
               subtitle: const Text('通知 · 日历 · 通讯录 · 应用时长'),
@@ -300,9 +308,10 @@ class SettingsView extends StatelessWidget {
               leading: const Icon(Icons.apps_outlined),
               title: const Text('服务'),
               subtitle: const Text('本机管理页面 · 一次性票据打开'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ServicesPage()),
-              ),
+              tileColor: activeRoute.startsWith('/rooms/services')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/services'),
             ),
             ListTile(
               leading: const Icon(Icons.tune_outlined),

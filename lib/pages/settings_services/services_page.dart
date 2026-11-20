@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:fluffychat/utils/device_hub/service_client.dart';
+import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -20,7 +21,11 @@ import 'service_webview_page.dart';
 ///
 /// 只有一组时隐藏标签栏，保持旧版观感。
 class ServicesPage extends StatefulWidget {
-  const ServicesPage({super.key});
+  const ServicesPage({super.key, this.showBottomNav = false});
+
+  /// 作为底部导航「服务」tab 的根页面时为 true：
+  /// 显示底部导航、隐藏 AppBar 返回箭头。
+  final bool showBottomNav;
 
   @override
   State<ServicesPage> createState() => _ServicesPageState();
@@ -281,6 +286,7 @@ class _ServicesPageState extends State<ServicesPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: !widget.showBottomNav,
         title: const Text('服务'),
         actions: [
           if (_busy)
@@ -307,6 +313,8 @@ class _ServicesPageState extends State<ServicesPage> {
         ],
       ),
       body: _buildBody(theme),
+      bottomNavigationBar:
+          widget.showBottomNav ? const QingBottomNav(currentIndex: 3) : null,
     );
   }
 

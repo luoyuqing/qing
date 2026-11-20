@@ -24,6 +24,7 @@ import 'package:fluffychat/pages/login/login.dart';
 import 'package:fluffychat/pages/new_group/new_group.dart';
 import 'package:fluffychat/pages/new_private_chat/new_private_chat.dart';
 import 'package:fluffychat/pages/settings/settings.dart';
+import 'package:fluffychat/pages/settings_services/services_page.dart';
 import 'package:fluffychat/pages/settings_3pid/settings_3pid.dart';
 import 'package:fluffychat/pages/settings_chat/settings_chat.dart';
 import 'package:fluffychat/pages/settings_emotes/settings_emotes.dart';
@@ -175,6 +176,16 @@ abstract class AppRoutes {
               path: 'memory',
               pageBuilder: (context, state) =>
                   defaultPageBuilder(context, state, const MemoryPage()),
+              redirect: loggedOutRedirect,
+            ),
+            // Qing：底部导航「服务」tab 的根页面
+            GoRoute(
+              path: 'services',
+              pageBuilder: (context, state) => defaultPageBuilder(
+                context,
+                state,
+                const ServicesPage(showBottomNav: true),
+              ),
               redirect: loggedOutRedirect,
             ),
             // Qing：本机归档（下拉聊天列表露出的归档卡片点进来）

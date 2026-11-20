@@ -220,7 +220,7 @@ class _MemoryPageState extends State<MemoryPage>
                     _personaTab(theme),
                   ],
                 ),
-      bottomNavigationBar: const QingBottomNav(currentIndex: 3),
+      bottomNavigationBar: const QingBottomNav(currentIndex: 4),
     );
   }
 

@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// Qing · 底部导航（五 Tab）
 ///
-/// 聊天 / 简报 / 任务 / 记忆 / 设置。
+/// 聊天 / 简报 / 任务 / 服务 / 设置。
 /// 页面之间用 go_router 切换；当前页高亮由 currentIndex 决定。
 class QingBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -14,7 +14,7 @@ class QingBottomNav extends StatelessWidget {
     '/rooms',
     '/rooms/briefing',
     '/rooms/tasks',
-    '/rooms/memory',
+    '/rooms/services',
     '/rooms/settings',
   ];
 
@@ -45,9 +45,9 @@ class QingBottomNav extends StatelessWidget {
           label: '任务',
         ),
         NavigationDestination(
-          icon: Icon(Icons.psychology_outlined),
-          selectedIcon: Icon(Icons.psychology),
-          label: '记忆',
+          icon: Icon(Icons.apps_outlined),
+          selectedIcon: Icon(Icons.apps),
+          label: '服务',
         ),
         NavigationDestination(
           icon: Icon(Icons.settings_outlined),

@@ -23,7 +23,16 @@ class _CredentialsPageState extends State<CredentialsPage> {
   String? _error;
   List<Map<String, dynamic>> _items = const [];
   String _q = '';
+  String _filter = 'all';
   final _search = TextEditingController();
+
+  int get _missing => _items.where((e) => e['resolved'] != true).length;
+
+  int get _shadowed => _items.where((e) => e['shadowed'] == true).length;
+
+  int get _unused => _items
+      .where((e) => ((e['references'] as List?) ?? const []).isEmpty)
+      .length;
 
   @override
   void initState() {
@@ -64,9 +73,19 @@ class _CredentialsPageState extends State<CredentialsPage> {
   }
 
   List<Map<String, dynamic>> get _filtered {
-    if (_q.trim().isEmpty) return _items;
+    var list = _items;
+    if (_filter == 'missing') {
+      list = list.where((e) => e['resolved'] != true).toList();
+    } else if (_filter == 'shadowed') {
+      list = list.where((e) => e['shadowed'] == true).toList();
+    } else if (_filter == 'unused') {
+      list = list
+          .where((e) => ((e['references'] as List?) ?? const []).isEmpty)
+          .toList();
+    }
+    if (_q.trim().isEmpty) return list;
     final q = _q.trim().toUpperCase();
-    return _items.where((e) => '${e['name']}'.contains(q)).toList();
+    return list.where((e) => '${e['name']}'.contains(q)).toList();
   }
 
   /// 编辑或新增：name 为空表示新增
@@ -281,15 +300,29 @@ class _CredentialsPageState extends State<CredentialsPage> {
               onChanged: (v) => setState(() => _q = v),
             ),
           ),
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _filterChip('all', '全部 ${_items.length}'),
+                _filterChip('missing', '缺失 $_missing', warn: _missing > 0),
+                _filterChip('shadowed', '遮蔽 $_shadowed', warn: _shadowed > 0),
+                _filterChip('unused', '未引用 $_unused'),
+              ],
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
             child: Row(
               children: [
-                Text('${items.length} 项',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                Text('写入系统级 .env · 密钥不回显',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10.5,
+                        color: theme.colorScheme.onSurfaceVariant)),
                 const Spacer(),
-                Text('写入系统级 .env',
+                Text('${items.length} 项',
                     style: theme.textTheme.bodySmall?.copyWith(
                         fontSize: 10.5,
                         color: theme.colorScheme.onSurfaceVariant)),
@@ -343,6 +376,27 @@ class _CredentialsPageState extends State<CredentialsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _filterChip(String value, String label, {bool warn = false}) {
+    final theme = Theme.of(context);
+    final selected = _filter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+        labelStyle: theme.textTheme.bodySmall?.copyWith(
+          fontSize: 11.5,
+          color: selected
+              ? theme.colorScheme.onSecondaryContainer
+              : (warn ? const Color(0xFFB5822C) : null),
+        ),
+        onSelected: (_) => setState(() => _filter = value),
       ),
     );
   }

@@ -44,6 +44,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   bool _allScopes = true;
   bool _saving = false;
   bool _fetching = false;
+  String _apiMode = 'chat_completions';
   List<Map<String, dynamic>> _creds = const [];
 
   bool get _isEdit => widget.existing != null;
@@ -87,6 +88,9 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     _baseUrl = TextEditingController(text: '${e['base_url'] ?? ''}');
     _keyEnv = TextEditingController(text: '${e['key_env'] ?? ''}');
     _newEnv = TextEditingController();
+    // 空值按聊天补全处理，与后端默认一致
+    _apiMode = '${e['api_mode'] ?? ''}'.trim();
+    if (_apiMode.isEmpty) _apiMode = 'chat_completions';
     // 新增默认同步；编辑时只有这条本来就在多人设里才默认同步
     _allScopes = !_isEdit || widget.scopes.length > 1;
     _loadCreds();
@@ -168,7 +172,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
         put('model', model);
         put('base_url', baseUrl);
         put('provider', 'custom');
-        put('api_mode', 'chat_completions');
+        put('api_mode', _apiMode);
         final ke = _keyEnv.text.trim();
         if (ke.isNotEmpty && ke != '${e['key_env'] ?? ''}') payload['key_env'] = ke;
         if (payload.isEmpty) {
@@ -188,6 +192,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
           label: label.isEmpty ? model : label,
           model: model,
           baseUrl: baseUrl,
+          apiMode: _apiMode,
           keyEnv: _useNewEnv ? '' : _keyEnv.text.trim(),
           newEnvValue: _useNewEnv ? _newEnv.text.trim() : '',
           scope: _allScopes ? 'all' : 'persona',
@@ -250,6 +255,47 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
                   ),
                 ),
                 _field(theme, '端点（如 https://api.xiaomimimo.com/v1）', _baseUrl),
+                const SizedBox(height: 2),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '接口类型',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'chat_completions',
+                      label: Text('聊天补全'),
+                      icon: Icon(Icons.chat_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 'codex_responses',
+                      label: Text('Responses'),
+                      icon: Icon(Icons.data_object, size: 16),
+                    ),
+                  ],
+                  selected: {_apiMode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) =>
+                      setState(() => _apiMode = v.first),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _apiMode == 'codex_responses'
+                      ? '走 /v1/responses，适合支持 Responses 协议的端点；'
+                          '普通 OpenAI 兼容中转多数用聊天补全。'
+                      : '走 /v1/chat/completions，兼容性最好。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 10.5,
+                    height: 1.5,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),

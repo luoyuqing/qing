@@ -1,5 +1,6 @@
 import 'package:fluffychat/pages/settings_agent/auxiliary_edit_page.dart';
 import 'package:fluffychat/pages/settings_agent/candidate_edit_page.dart';
+import 'package:fluffychat/pages/settings_agent/credentials_page.dart';
 import 'package:fluffychat/pages/settings_agent/fallback_edit_page.dart';
 import 'package:fluffychat/utils/device_hub/device_hub_client.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
@@ -69,6 +70,29 @@ class _AgentModelPageState extends State<AgentModelPage> {
 
   Map<String, dynamic> get _model =>
       ((_state?['model'] as Map?) ?? const {}).cast<String, dynamic>();
+
+  int get _credTotal => _creds.length;
+
+  int get _credMissing =>
+      _creds.where((e) => e['resolved'] != true).length;
+
+  int get _credShadowed =>
+      _creds.where((e) => e['shadowed'] == true).length;
+
+  String _apiModeLabel(String value) => switch (value) {
+        'codex_responses' => 'Responses',
+        'anthropic_messages' => 'Claude 消息',
+        'codex_app_server' => 'Codex App Server',
+        '' || 'chat_completions' => '聊天补全',
+        _ => value,
+      };
+
+  Future<void> _openCredentials() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CredentialsPage()),
+    );
+    if (mounted) _load();
+  }
 
   Map<String, dynamic> get _scopeMap =>
       ((_state?['scopes'] as Map?) ?? const {}).cast<String, dynamic>();
@@ -381,7 +405,7 @@ class _AgentModelPageState extends State<AgentModelPage> {
                               ? const Color(0xFF4E8A67)
                               : const Color(0xFFC05552))),
                   const Spacer(),
-                  Text('${m['api_mode'] ?? ''}',
+                  Text(_apiModeLabel('${m['api_mode'] ?? ''}'),
                       style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
                 ],
@@ -602,52 +626,51 @@ class _AgentModelPageState extends State<AgentModelPage> {
           ),
         ),
         const SizedBox(height: 20),
-        const QingSectionTitle('凭据健康'),
+        const QingSectionTitle('凭据'),
         QingCard(
-          padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          onTap: _busy ? null : () => _openCredentials(),
+          child: Row(
             children: [
-              for (final c in _creds.where((e) {
-                final n = '${e['name']}';
-                return n.endsWith('_API_KEY') || n.endsWith('_KEY');
-              }).take(10)) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${c['name']}',
-                                style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
-                            if (c['shadowed'] == true)
-                              Text('user 级遮蔽系统级（以 data/.env 为准）',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                      fontSize: 10, color: const Color(0xFFB5822C))),
-                          ],
-                        ),
+              Icon(
+                Icons.key_outlined,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$_credTotal 项凭据'
+                      '${_credMissing == 0 ? ' · 全部就绪' : ' · $_credMissing 项缺失'}',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        if (_credMissing > 0) '$_credMissing 项未解析到值',
+                        if (_credShadowed > 0) '$_credShadowed 项被用户级遮蔽',
+                        if (_credMissing == 0 && _credShadowed == 0)
+                          '增删改、搜索与引用关系都在凭据页',
+                      ].join(' · '),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10.5,
+                        color: (_credMissing > 0 || _credShadowed > 0)
+                            ? const Color(0xFFB5822C)
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
-                      Text(
-                        c['in_system'] == true ? '/etc/hermes/.env' : 'data/.env',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: c['resolved'] == true
-                              ? const Color(0xFF4E8A67)
-                              : const Color(0xFFC05552),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -711,6 +734,19 @@ class _AgentModelPageState extends State<AgentModelPage> {
                               style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 9.5,
                                   color: theme.colorScheme.onSurfaceVariant)),
+                        ),
+                      ],
+                      if ('${c['api_mode']}' == 'codex_responses') ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text('Responses',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 9.5, color: theme.colorScheme.primary)),
                         ),
                       ],
                     ],
