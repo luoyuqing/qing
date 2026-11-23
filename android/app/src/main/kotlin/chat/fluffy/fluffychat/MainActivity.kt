@@ -38,6 +38,7 @@ class MainActivity : FlutterFragmentActivity() {
         // 这里再注册保证 Activity 自己的引擎也带着 channel）
         BackgroundSyncBridge.register(flutterEngine, applicationContext)
         DeviceDataBridge.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
+        WebDownloadBridge.register(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
         DeviceDataBridge.attachActivity(this)
     }
 
@@ -54,6 +55,7 @@ class MainActivity : FlutterFragmentActivity() {
             // 后台同步前台服务也用这个引擎，桥必须挂上
             BackgroundSyncBridge.register(eng, context.applicationContext)
             DeviceDataBridge.register(eng.dartExecutor.binaryMessenger, context.applicationContext)
+            WebDownloadBridge.register(eng.dartExecutor.binaryMessenger, context.applicationContext)
             engine = eng
             return eng
         }
