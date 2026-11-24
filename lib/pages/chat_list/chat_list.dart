@@ -976,14 +976,28 @@ class ChatListController extends State<ChatList>
     });
   }
 
+  /// 不在筛选栏展示的 room tag。
+  ///
+  /// `qing.archived` 是外部客户端打在房间上的 Matrix 标签（m.tag），
+  /// 与清助理的归档功能无关 —— 归档走 [ChatArchive] + 本机 SharedPreferences，
+  /// 不写 m.tag（见 chat_archive.dart 注释）。因此这里只隐藏标签入口，
+  /// 既不删服务器上的 tag，也不影响归档列表与下拉归档入口。
+  static const Set<String> _hiddenRoomTags = {
+    'u.qing.archived',
+    'qing.archived',
+  };
+
   void _updateRoomTags([_]) {
     roomTags.clear();
     for (final room in Matrix.of(context).client.rooms) {
       for (final tag in room.tags.keys) {
-        if (tag.startsWith('u.')) roomTags[tag] = (roomTags[tag] ?? 0) + 1;
+        if (!tag.startsWith('u.')) continue;
+        if (_hiddenRoomTags.contains(tag)) continue;
+        roomTags[tag] = (roomTags[tag] ?? 0) + 1;
       }
     }
     setState(() {
+      // 之前若正好选中过被隐藏的标签，这里会自动退回「全部」
       if (activeTag != null && !roomTags.keys.contains(activeTag)) {
         activeTag = null;
         activeFilter = ActiveFilter.allChats;
