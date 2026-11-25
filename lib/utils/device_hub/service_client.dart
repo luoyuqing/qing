@@ -88,7 +88,8 @@ class ServiceClient {
     return url;
   }
 
-  /// 退出登录 / 切换账号时由页面调用 WebViewCookieManager().clearCookies()，
+  /// 会话 Cookie 由服务端 `/__gate` 在换票时写入，有效期 8 小时；
+  /// 每次打开服务都会重新换票并刷新，因此不需要（也不提供）手动清理入口。
   /// 这里不碰 WebView 依赖，保持 client 纯粹的 HTTP 职责。
 
   static Future<Map<String, dynamic>> _postJson(

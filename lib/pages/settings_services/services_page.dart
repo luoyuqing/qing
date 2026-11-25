@@ -6,7 +6,6 @@ import 'package:fluffychat/utils/device_hub/service_client.dart';
 import 'package:fluffychat/widgets/qing_bottom_nav.dart';
 import 'package:fluffychat/widgets/qing_style.dart';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 import 'service_webview_page.dart';
 
@@ -144,11 +143,6 @@ class _ServicesPageState extends State<ServicesPage> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _clearSession() async {
-    await WebViewCookieManager().clearCookies();
-    _toast('服务登录态已清除，下次打开会重新换票');
   }
 
   // ---------- 排序 ----------
@@ -303,11 +297,6 @@ class _ServicesPageState extends State<ServicesPage> {
               tooltip: '刷新目录',
               icon: const Icon(Icons.refresh_outlined),
               onPressed: _load,
-            ),
-            IconButton(
-              tooltip: '清除服务登录态',
-              icon: const Icon(Icons.logout_outlined),
-              onPressed: _clearSession,
             ),
           ],
         ],
