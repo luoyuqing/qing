@@ -277,25 +277,9 @@ class SettingsView extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 18, 16, 6),
               child: QingSectionTitle('Qing'),
             ),
-            ListTile(
-              leading: const Icon(Icons.psychology_outlined),
-              title: const Text('记忆'),
-              subtitle: const Text('记忆 · 画像 · 技能 · 人设'),
-              tileColor: activeRoute.startsWith('/rooms/memory')
-                  ? theme.colorScheme.surfaceContainerHigh
-                  : null,
-              onTap: () => context.go('/rooms/memory'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.memory_outlined),
-              title: const Text('设备数据'),
-              subtitle: const Text('通知 · 日历 · 通讯录 · 应用时长'),
-              tileColor: activeRoute.startsWith('/rooms/settings/device-hub')
-                  ? theme.colorScheme.surfaceContainerHigh
-                  : null,
-              onTap: () => context.go('/rooms/settings/device-hub'),
-            ),
-            // 体检挪进「设备数据」页；这里换成服务器状态（少一层点击）
+            // Qing 分组顺序：服务器状态 → 记忆 → 模型与推理 → 凭据
+            //   → 插件与能力 → 用量 → 设备数据 → 连接应用 → 数据与隐私
+            // 「服务」已在底部导航，设置里不再重复入口。
             ListTile(
               leading: const Icon(Icons.monitor_heart_outlined),
               title: const Text('服务器状态'),
@@ -305,13 +289,13 @@ class SettingsView extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.apps_outlined),
-              title: const Text('服务'),
-              subtitle: const Text('本机管理页面 · 一次性票据打开'),
-              tileColor: activeRoute.startsWith('/rooms/services')
+              leading: const Icon(Icons.psychology_outlined),
+              title: const Text('记忆'),
+              subtitle: const Text('记忆 · 画像 · 技能 · 人设'),
+              tileColor: activeRoute.startsWith('/rooms/memory')
                   ? theme.colorScheme.surfaceContainerHigh
                   : null,
-              onTap: () => context.go('/rooms/services'),
+              onTap: () => context.go('/rooms/memory'),
             ),
             ListTile(
               leading: const Icon(Icons.tune_outlined),
@@ -346,7 +330,16 @@ class SettingsView extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.extension_outlined),
+              leading: const Icon(Icons.memory_outlined),
+              title: const Text('设备数据'),
+              subtitle: const Text('通知 · 日历 · 通讯录 · 应用时长'),
+              tileColor: activeRoute.startsWith('/rooms/settings/device-hub')
+                  ? theme.colorScheme.surfaceContainerHigh
+                  : null,
+              onTap: () => context.go('/rooms/settings/device-hub'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
               title: const Text('连接应用'),
               subtitle: const Text('MCP 服务（由 X2 代理，凭据不上手机）'),
               tileColor: activeRoute.startsWith('/rooms/settings/connectors')
