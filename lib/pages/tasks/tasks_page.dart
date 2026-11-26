@@ -33,6 +33,8 @@ class _TasksPageState extends State<TasksPage>
   late final TabController _tabs = TabController(length: 3, vsync: this);
   bool _loading = true;
   String? _error;
+  late String _persona = widget.persona;
+  List<Map<String, dynamic>> _personas = const [];
   List<Map<String, dynamic>> _sessions = const [];
   List<Map<String, dynamic>> _routines = const [];
   Map<String, dynamic>? _digest;
@@ -41,21 +43,79 @@ class _TasksPageState extends State<TasksPage>
   /// 收藏：只存本地（SharedPreferences），不上传服务端。
   /// _favOrder 决定展示顺序（最近收藏在前），_favMeta 保存快照，
   /// 这样即使会话已经掉出「最近 30 条」，收藏里仍能看到名字并点回去。
-  static const _favKey = 'qingzhuli.fav_sessions';
+  ///
+  /// 按人设隔离：default 沿用旧 key（兼容升级前已收藏的会话），
+  /// 其它人设各存一份，切换人设不会串味。
+  String get _favKey => _persona == 'default'
+      ? 'qingzhuli.fav_sessions'
+      : 'qingzhuli.fav_sessions.$_persona';
+
+  static const _personaKey = 'qingzhuli.tasks_persona';
   List<String> _favOrder = const [];
   Map<String, Map<String, dynamic>> _favMeta = const {};
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _loadFavorites();
+    _bootstrap();
     // 左右滑动列表时，上面的分段控件要跟着走
     _tabs.addListener(() {
       const values = ['sessions', 'favorites', 'routines'];
       final v = values[_tabs.index];
       if (v != _tab) setState(() => _tab = v);
     });
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_personaKey);
+      // 只在调用方没有显式指定人设时恢复上次选择
+      if (widget.persona == 'default' && saved != null && saved.isNotEmpty) {
+        _persona = saved;
+      }
+    } catch (_) {}
+    await _loadPersonas();
+    await _loadFavorites();
+    await _load();
+  }
+
+  Future<void> _loadPersonas() async {
+    try {
+      final rows = await DeviceHubClient.personas();
+      if (!mounted) return;
+      setState(() {
+        _personas = rows
+            .where((p) => '${p['id'] ?? ''}'.isNotEmpty)
+            .toList(growable: false);
+        if (_personas.isNotEmpty &&
+            !_personas.any((p) => '${p['id']}' == _persona)) {
+          _persona = '${_personas.first['id']}';
+        }
+      });
+    } catch (_) {
+      // 人设列表拿不到时退化为单人设，不阻塞会话与定时任务
+    }
+  }
+
+  Future<void> _switchPersona(String id) async {
+    if (id == _persona) return;
+    setState(() {
+      _persona = id;
+      _sessions = const [];
+      _routines = const [];
+      _digest = null;
+      _favOrder = const [];
+      _favMeta = const {};
+      _tab = 'sessions';
+    });
+    _tabs.index = 0;
+    await _loadFavorites();
+    await _load();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_personaKey, id);
+    } catch (_) {}
   }
 
   @override
@@ -71,9 +131,9 @@ class _TasksPageState extends State<TasksPage>
     });
     try {
       final results = await Future.wait([
-        DeviceHubClient.sessions(persona: widget.persona, limit: 30),
-        DeviceHubClient.routines(persona: widget.persona),
-        DeviceHubClient.sessionDigest(persona: widget.persona)
+        DeviceHubClient.sessions(persona: _persona, limit: 30),
+        DeviceHubClient.routines(persona: _persona),
+        DeviceHubClient.sessionDigest(persona: _persona)
             .catchError((_) => <String, dynamic>{}),
       ]);
       if (!mounted) return;
@@ -193,6 +253,31 @@ class _TasksPageState extends State<TasksPage>
               ? _errorView(theme)
               : Column(
                   children: [
+                    if (_personas.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              for (final p in _personas)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: ChoiceChip(
+                                    label: Text('${p['label'] ?? p['id']}'),
+                                    selected: '${p['id']}' == _persona,
+                                    visualDensity: VisualDensity.compact,
+                                    onSelected: (_) =>
+                                        _switchPersona('${p['id']}'),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                       child: _hero(theme),
@@ -268,7 +353,7 @@ class _TasksPageState extends State<TasksPage>
     final enabled = _routines.where((r) => r['enabled'] == true).length;
     return QingHero(
       icon: Icons.task_alt_rounded,
-      eyebrow: '任务 · 定时',
+      eyebrow: '任务 · $_personaLabel',
       title: sessions == 0 ? '今天还没聊' : '最近 $sessions 段会话',
       subtitle: routines == 0
           ? '小爱还没有定时任务'
@@ -531,7 +616,7 @@ class _TasksPageState extends State<TasksPage>
             const Divider(height: 1),
             SessionMessagesPane(
               sessionId: '${s['id']}',
-              persona: widget.persona,
+              persona: _persona,
               scrollController: scrollController,
               bubbleBuilder: (m) => _bubble(theme, m),
             ),
@@ -688,7 +773,7 @@ class _TasksPageState extends State<TasksPage>
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => _RoutineEditorSheet(
-        persona: widget.persona,
+        persona: _persona,
         routine: r,
       ),
     );
@@ -702,9 +787,15 @@ class _TasksPageState extends State<TasksPage>
     );
   }
 
-  /// 当前人设的名字（气泡上显示）
+  /// 当前人设的名字（气泡与顶部标题上显示），优先用服务端下发的 label
   String get _personaLabel {
-    switch (widget.persona) {
+    for (final p in _personas) {
+      if ('${p['id']}' == _persona) {
+        final label = '${p['label'] ?? ''}'.trim();
+        if (label.isNotEmpty) return label;
+      }
+    }
+    switch (_persona) {
       case 'intimate':
         return '亲密小爱';
       case 'tavern':
