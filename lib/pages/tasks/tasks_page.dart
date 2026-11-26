@@ -241,8 +241,67 @@ class _TasksPageState extends State<TasksPage>
         surfaceTintColor: Colors.transparent,
         title: const Text('任务'),
         actions: [
+          // 与「记忆」页保持一致：AppBar 下拉切人设
+          if (_personas.isNotEmpty)
+            PopupMenuButton<String>(
+              tooltip: '切换人设',
+              onSelected: _switchPersona,
+              itemBuilder: (context) => [
+                for (final p in _personas)
+                  PopupMenuItem(
+                    value: '${p['id']}',
+                    child: Row(
+                      children: [
+                        Icon(
+                          '${p['id']}' == _persona
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${p['label'] ?? p['id']}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${p['session_count'] ?? 0} 会话',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.face_outlined, size: 18),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 110),
+                      child: Text(
+                        _personaLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
+              ),
+            ),
           IconButton(
-            onPressed: _loading ? null : _load,
+            onPressed: _loading
+                ? null
+                : () {
+                    // 人设列表上次没取到时，借刷新一并重试
+                    if (_personas.isEmpty) _loadPersonas();
+                    _load();
+                  },
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -253,31 +312,6 @@ class _TasksPageState extends State<TasksPage>
               ? _errorView(theme)
               : Column(
                   children: [
-                    if (_personas.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                        child: SizedBox(
-                          height: 36,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              for (final p in _personas)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: ChoiceChip(
-                                    label: Text('${p['label'] ?? p['id']}'),
-                                    selected: '${p['id']}' == _persona,
-                                    visualDensity: VisualDensity.compact,
-                                    onSelected: (_) =>
-                                        _switchPersona('${p['id']}'),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                       child: _hero(theme),
