@@ -147,16 +147,7 @@ class DeviceHubClient {
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
-  static Future<Map<String, dynamic>> _deleteJson(String path) async {
-    final authToken = await token();
-    if (authToken == null) throw Exception('尚未配对');
-    final base = await baseUrl();
-    final resp = await _http
-        .delete(Uri.parse('$base$path'), headers: _headers(authToken))
-        .timeout(const Duration(seconds: 15));
-    if (resp.statusCode != 200) throw Exception(_errText(resp));
-    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-  }
+  // 注：_deleteJson 在文件后部（v1.20.0 区块）已有一份通用实现，勿重复定义
 
 
   /// GET 带一次重试：5G/WiFi 切换或 CF 边缘抖动时，TLS 握手会抛
