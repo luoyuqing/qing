@@ -683,7 +683,7 @@ class _TasksPageState extends State<TasksPage>
   }
 
   Future<void> _openRoutine(Map<String, dynamic> r) async {
-    final updated = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -693,12 +693,13 @@ class _TasksPageState extends State<TasksPage>
       ),
     );
     if (!mounted) return;
-    if (updated == true) {
-      _load();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('定时任务已保存')),
-      );
-    }
+    if (result != 'saved' && result != 'deleted') return;
+    _load();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result == 'deleted' ? '定时任务已删除' : '定时任务已保存'),
+      ),
+    );
   }
 
   /// 当前人设的名字（气泡上显示）
@@ -762,6 +763,7 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
   late bool _enabled = widget.routine['enabled'] == true;
   bool _saving = false;
   bool _running = false;
+  bool _deleting = false;
   bool _histLoading = false;
   List<Map<String, dynamic>> _history = const [];
 
@@ -1051,12 +1053,58 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
         schedule: _cron,
         enabled: _enabled,
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, 'saved');
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('保存失败：$e')),
+        );
+      }
+    }
+  }
+
+  /// 彻底删除（区别于「启用」开关的 pause）
+  Future<void> _delete() async {
+    final label = _name.text.trim().isEmpty
+        ? '这个定时任务'
+        : '「${_name.text.trim()}」';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除定时任务'),
+        content: Text(
+          '$label 将被永久删除，不再执行，也无法恢复。\n\n'
+          '如果只是想暂停，关掉上面的「启用」即可。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _deleting = true);
+    try {
+      await DeviceHubClient.deleteRoutine(
+        '${widget.routine['id']}',
+        persona: widget.persona,
+      );
+      if (mounted) Navigator.pop(context, 'deleted');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$e')),
         );
       }
     }
@@ -1234,15 +1282,16 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        _saving ? null : () => Navigator.pop(context, false),
+                    onPressed: _saving || _deleting
+                        ? null
+                        : () => Navigator.pop(context),
                     child: const Text('取消'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _saving ? null : _save,
+                    onPressed: _saving || _deleting ? null : _save,
                     child: _saving
                         ? const SizedBox(
                             width: 18,
@@ -1258,6 +1307,27 @@ class _RoutineEditorSheetState extends State<_RoutineEditorSheet> {
             Text(
               '保存后由 Hermes 自己的 cron 模块重算下次执行时间，无需重启网关。',
               style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _saving || _deleting ? null : _delete,
+                icon: _deleting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline, size: 18),
+                label: Text(_deleting ? '正在删除…' : '删除这个定时任务'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                  side: BorderSide(
+                    color: theme.colorScheme.error.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

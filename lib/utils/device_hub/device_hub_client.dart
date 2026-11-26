@@ -147,6 +147,17 @@ class DeviceHubClient {
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> _deleteJson(String path) async {
+    final authToken = await token();
+    if (authToken == null) throw Exception('尚未配对');
+    final base = await baseUrl();
+    final resp = await _http
+        .delete(Uri.parse('$base$path'), headers: _headers(authToken))
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200) throw Exception(_errText(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
 
   /// GET 带一次重试：5G/WiFi 切换或 CF 边缘抖动时，TLS 握手会抛
   /// HandshakeException（Connection terminated during handshake），
@@ -520,6 +531,14 @@ class DeviceHubClient {
         if (schedule != null) 'schedule': schedule,
         if (enabled != null) 'enabled': enabled,
       });
+
+  /// 彻底删除定时任务（不是 pause）。服务端走 Hermes cron 模块删除，
+  /// 同时清理 next_run_at 等排期状态，删掉后不会再出现在列表里。
+  static Future<Map<String, dynamic>> deleteRoutine(
+    String id, {
+    String persona = 'default',
+  }) =>
+      _deleteJson('/routines/$id?persona=$persona');
 
   // ---------- 记忆 / 画像 / 技能 ----------
   static Future<Map<String, dynamic>> memory({String persona = 'default'}) =>
