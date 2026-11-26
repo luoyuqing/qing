@@ -46,6 +46,18 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   bool _fetching = false;
   String _apiMode = 'chat_completions';
   List<Map<String, dynamic>> _creds = const [];
+  String _credQuery = '';
+  final TextEditingController _credSearch = TextEditingController();
+
+  /// 只把「像密钥」的变量放进快选区，避免把 SMTP_PASS 之类也塞进来。
+  /// 注意不能只认 _API_KEY / KEY：CF2_PAGES_TOKEN、comfy-token 这类会漏。
+  List<Map<String, dynamic>> get _filteredCreds {
+    final q = _credQuery.trim().toUpperCase();
+    if (q.isEmpty) return _creds;
+    return _creds
+        .where((e) => '${e['name']}'.toUpperCase().contains(q))
+        .toList(growable: false);
+  }
 
   bool get _isEdit => widget.existing != null;
 
@@ -104,6 +116,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     _baseUrl.dispose();
     _keyEnv.dispose();
     _newEnv.dispose();
+    _credSearch.dispose();
     super.dispose();
   }
 
@@ -111,9 +124,12 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     try {
       final items = await DeviceHubClient.credentials();
       if (!mounted) return;
-      setState(() => _creds = items
-          .where((e) => '${e['name']}'.endsWith('_API_KEY') || '${e['name']}'.contains('KEY'))
-          .toList());
+      setState(() => _creds = items.where((e) {
+            final n = '${e['name']}'.toUpperCase();
+            return n.contains('KEY') ||
+                n.contains('TOKEN') ||
+                n.contains('SECRET');
+          }).toList());
     } catch (_) {}
   }
 
@@ -310,21 +326,52 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
                         height: 1.5, color: theme.colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 10),
                 if (!_useNewEnv) ...[
-                  if (_creds.isNotEmpty)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final c in _creds.take(12))
-                          ChoiceChip(
-                            label: Text('${c['name']}',
-                                style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
-                            selected: _keyEnv.text == '${c['name']}',
-                            onSelected: (_) =>
-                                setState(() => _keyEnv.text = '${c['name']}'),
-                          ),
-                      ],
-                    ),
+                  if (_creds.isNotEmpty) ...[
+                    if (_creds.length > 10)
+                      TextField(
+                        controller: _credSearch,
+                        onChanged: (v) => setState(() => _credQuery = v),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: '搜索凭据（共 ${_creds.length} 个）',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          suffixIcon: _credQuery.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: '清空搜索',
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: () {
+                                    _credSearch.clear();
+                                    setState(() => _credQuery = '');
+                                  },
+                                ),
+                        ),
+                      ),
+                    if (_creds.length > 10) const SizedBox(height: 8),
+                    if (_filteredCreds.isEmpty)
+                      Text(
+                        '没有匹配的凭据',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final c in _filteredCreds)
+                            ChoiceChip(
+                              label: Text('${c['name']}',
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(fontSize: 11)),
+                              selected: _keyEnv.text == '${c['name']}',
+                              onSelected: (_) =>
+                                  setState(() => _keyEnv.text = '${c['name']}'),
+                            ),
+                        ],
+                      ),
+                  ],
                   const SizedBox(height: 8),
                   TextField(
                     controller: _keyEnv,
