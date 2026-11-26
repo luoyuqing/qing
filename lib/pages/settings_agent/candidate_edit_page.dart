@@ -174,6 +174,10 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
       _toast('标识只能用小写字母/数字/下划线，2-24 位');
       return;
     }
+    if (_useNewEnv && _newEnv.text.trim().isEmpty) {
+      _toast('填一下密钥值，或关掉「新建一个环境变量」');
+      return;
+    }
     setState(() => _saving = true);
     try {
       if (_isEdit) {
@@ -191,6 +195,10 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
         put('api_mode', _apiMode);
         final ke = _keyEnv.text.trim();
         if (ke.isNotEmpty && ke != '${e['key_env'] ?? ''}') payload['key_env'] = ke;
+        // 「新建一个环境变量」在编辑态同样生效：把密钥值交给服务端写入 .env
+        if (_useNewEnv) {
+          payload['new_env_value'] = _newEnv.text.trim();
+        }
         if (payload.isEmpty) {
           if (mounted) Navigator.pop(context, false);
           return;
@@ -209,7 +217,8 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
           model: model,
           baseUrl: baseUrl,
           apiMode: _apiMode,
-          keyEnv: _useNewEnv ? '' : _keyEnv.text.trim(),
+          // 新增时也尊重用户填的「新变量名」；留空才由服务端按 KEY 自动生成
+          keyEnv: _keyEnv.text.trim(),
           newEnvValue: _useNewEnv ? _newEnv.text.trim() : '',
           scope: _allScopes ? 'all' : 'persona',
         );
