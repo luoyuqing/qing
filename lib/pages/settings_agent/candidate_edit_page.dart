@@ -49,6 +49,15 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   String _credQuery = '';
   final TextEditingController _credSearch = TextEditingController();
 
+  // 校验失败时把错误直接标在对应输入框下面，避免只弹一个被键盘遮住的
+  // SnackBar，让用户以为「点保存没反应」。
+  String? _errKey;
+  String? _errModel;
+  String? _errBaseUrl;
+  String? _errNewEnv;
+  final ScrollController _scroll = ScrollController();
+  final GlobalKey _credAnchor = GlobalKey();
+
   /// 只把「像密钥」的变量放进快选区，避免把 SMTP_PASS 之类也塞进来。
   /// 注意不能只认 _API_KEY / KEY：CF2_PAGES_TOKEN、comfy-token 这类会漏。
   List<Map<String, dynamic>> get _filteredCreds {
@@ -117,6 +126,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     _keyEnv.dispose();
     _newEnv.dispose();
     _credSearch.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -157,25 +167,56 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     }
   }
 
+  /// 把任意输入规整成合法的候选标识：小写、非 a-z0-9_ 一律转下划线、≤24 位
+  static String _slugKey(String raw) {
+    var s = raw.toLowerCase().trim();
+    s = s.replaceAll(RegExp(r'[^a-z0-9_]+'), '_');
+    s = s.replaceAll(RegExp(r'^_+|_+$'), '');
+    if (s.length > 24) s = s.substring(0, 24);
+    return s;
+  }
+
+  static final RegExp _keyRe = RegExp(r'^[a-z0-9_]{2,24}$');
+
   Future<void> _save() async {
-    final key = _key.text.trim();
     final label = _label.text.trim();
     final model = _model.text.trim();
     final baseUrl = _baseUrl.text.trim();
-    if (model.isEmpty || baseUrl.isEmpty) {
-      _toast('模型名与端点不能为空');
-      return;
+
+    // 标识是内部唯一键，不该因为用户填了中文就卡住保存：
+    // 非法时先用「模型 ID」规整，再不行才报错。
+    var key = _key.text.trim();
+    String? errKey;
+    if (!_isEdit && !_keyRe.hasMatch(key)) {
+      final auto = _slugKey(model);
+      if (_keyRe.hasMatch(auto)) {
+        key = auto;
+        _key.text = auto;
+      } else {
+        errKey = '标识只能用英文/数字/下划线（2-24 位），或留空自动取模型名';
+      }
     }
-    if (!baseUrl.startsWith('http')) {
-      _toast('端点必须以 http:// 或 https:// 开头');
-      return;
-    }
-    if (!_isEdit && !RegExp(r'^[a-z0-9_]{2,24}$').hasMatch(key)) {
-      _toast('标识只能用小写字母/数字/下划线，2-24 位');
-      return;
-    }
-    if (_useNewEnv && _newEnv.text.trim().isEmpty) {
-      _toast('填一下密钥值，或关掉「新建一个环境变量」');
+
+    final errModel = model.isEmpty ? '模型 ID 不能为空' : null;
+    final errBaseUrl = baseUrl.isEmpty
+        ? '端点不能为空'
+        : (!baseUrl.startsWith('http') ? '端点必须以 http:// 或 https:// 开头' : null);
+    final errNewEnv = (_useNewEnv && _newEnv.text.trim().isEmpty)
+        ? '填一下密钥值，或关掉「新建一个环境变量」'
+        : null;
+    setState(() {
+      _errKey = errKey;
+      _errModel = errModel;
+      _errBaseUrl = errBaseUrl;
+      _errNewEnv = errNewEnv;
+    });
+    if (errKey != null ||
+        errModel != null ||
+        errBaseUrl != null ||
+        errNewEnv != null) {
+      final message = errKey ?? errModel ?? errBaseUrl ?? errNewEnv!;
+      _toast(message);
+      _revealError(cred: errNewEnv != null);
       return;
     }
     setState(() => _saving = true);
@@ -233,7 +274,42 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   }
 
   void _toast(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    // 先收键盘：否则 SnackBar 会被软键盘整个盖住，看起来像「点了没反应」
+    FocusManager.instance.primaryFocus?.unfocus();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
+  /// 把出错的字段滚进视野：凭据区的问题滚到凭据卡，其余滚回顶部信息卡
+  void _revealError({required bool cred}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (cred) {
+        final ctx = _credAnchor.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            alignment: 0.05,
+          );
+        }
+        return;
+      }
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -246,21 +322,34 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
         surfaceTintColor: Colors.transparent,
         title: Text(_isEdit ? '编辑候选模型' : '新增候选模型')),
       body: ListView(
+        controller: _scroll,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           QingCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _field(theme, '标识（小写英文，如 mimo2）', _key, enabled: !_isEdit),
+                _field(
+                  theme,
+                  '标识（内部唯一键）',
+                  _key,
+                  enabled: !_isEdit,
+                  helperText: '留空自动取模型名，如 kimi_k3；只能用英文/数字/下划线',
+                  errorText: _errKey,
+                  onErrorClear: () => _errKey = null,
+                ),
                 _field(theme, '显示名（如 MiMo 备用）', _label),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: TextField(
                     controller: _model,
+                    onChanged: (_) {
+                      if (_errModel != null) setState(() => _errModel = null);
+                    },
                     decoration: InputDecoration(
                       labelText: '模型 ID（如 mimo-v2.6-flash）',
                       isDense: true,
+                      errorText: _errModel,
                       suffixIcon: _fetching
                           ? const Padding(
                               padding: EdgeInsets.all(12),
@@ -279,7 +368,13 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
                     ),
                   ),
                 ),
-                _field(theme, '端点（如 https://api.xiaomimimo.com/v1）', _baseUrl),
+                _field(
+                  theme,
+                  '端点（如 https://api.xiaomimimo.com/v1）',
+                  _baseUrl,
+                  errorText: _errBaseUrl,
+                  onErrorClear: () => _errBaseUrl = null,
+                ),
                 const SizedBox(height: 2),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -325,7 +420,10 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
             ),
           ),
           const SizedBox(height: 14),
-          QingSectionTitle('凭据'),
+          KeyedSubtree(
+            key: _credAnchor,
+            child: const QingSectionTitle('凭据'),
+          ),
           QingCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,9 +499,15 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
                   TextField(
                     controller: _newEnv,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    onChanged: (_) {
+                      if (_errNewEnv != null) {
+                        setState(() => _errNewEnv = null);
+                      }
+                    },
+                    decoration: InputDecoration(
                       labelText: '密钥值（只写不读，保存后不再显示）',
                       isDense: true,
+                      errorText: _errNewEnv,
                     ),
                   ),
                 ],
@@ -502,13 +606,26 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   }
 
   Widget _field(ThemeData theme, String label, TextEditingController c,
-      {bool enabled = true}) {
+      {bool enabled = true,
+      String? errorText,
+      String? helperText,
+      VoidCallback? onErrorClear}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: c,
         enabled: enabled,
-        decoration: InputDecoration(labelText: label, isDense: true),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          helperText: helperText,
+          errorText: errorText,
+        ),
+        onChanged: (_) {
+          if (errorText != null) {
+            setState(() => onErrorClear?.call());
+          }
+        },
       ),
     );
   }
