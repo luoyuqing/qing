@@ -116,6 +116,30 @@ class _AgentModelPageState extends State<AgentModelPage> {
     return '仅${scopes.map((p) => _personas[p] ?? p).join('、')}';
   }
 
+  /// 思考档的中文短标签；未知/空返回空串（不渲染标签）
+  String _reasoningShort(String raw) {
+    switch (raw.trim().toLowerCase()) {
+      case 'none':
+        return '关';
+      case 'minimal':
+        return '最低';
+      case 'low':
+        return '低';
+      case 'medium':
+        return '中';
+      case 'high':
+        return '高';
+      case 'xhigh':
+        return '很高';
+      case 'max':
+        return '最高';
+      case 'ultra':
+        return '极限';
+      default:
+        return '';
+    }
+  }
+
   List<Map<String, dynamic>> get _candidates =>
       (((_state?['candidates'] as List?) ?? const [])
           .whereType<Map>()
@@ -747,6 +771,26 @@ class _AgentModelPageState extends State<AgentModelPage> {
                           child: Text('Responses',
                               style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 9.5, color: theme.colorScheme.primary)),
+                        ),
+                      ],
+                      // 思考档：默认 medium 不显示，避免每行都挂一个标签
+                      if (_reasoningShort('${c['reasoning_effort'] ?? ''}')
+                          .isNotEmpty &&
+                          '${c['reasoning_effort']}' != 'medium') ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: theme.colorScheme.outlineVariant, width: 0.5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '思考·${_reasoningShort('${c['reasoning_effort']}')}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 9.5,
+                                color: theme.colorScheme.onSurfaceVariant),
+                          ),
                         ),
                       ],
                     ],

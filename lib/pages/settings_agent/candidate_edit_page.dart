@@ -45,6 +45,19 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
   bool _saving = false;
   bool _fetching = false;
   String _apiMode = 'chat_completions';
+  String _reasoning = 'medium';
+
+  /// Hermes 认可的思考档位（hermes_constants.VALID_REASONING_EFFORTS + none）
+  static const Map<String, String> _reasoningLabels = {
+    'none': '关闭思考',
+    'minimal': '最低',
+    'low': '低',
+    'medium': '中（默认）',
+    'high': '高',
+    'xhigh': '很高',
+    'max': '最高',
+    'ultra': '极限',
+  };
   List<Map<String, dynamic>> _creds = const [];
   String _credQuery = '';
   final TextEditingController _credSearch = TextEditingController();
@@ -112,6 +125,11 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
     // 空值按聊天补全处理，与后端默认一致
     _apiMode = '${e['api_mode'] ?? ''}'.trim();
     if (_apiMode.isEmpty) _apiMode = 'chat_completions';
+    // 思考模式：老候选没配过时按默认 medium
+    final savedReasoning = '${e['reasoning_effort'] ?? ''}'.trim().toLowerCase();
+    _reasoning = _reasoningLabels.containsKey(savedReasoning)
+        ? savedReasoning
+        : 'medium';
     // 新增默认同步；编辑时只有这条本来就在多人设里才默认同步
     _allScopes = !_isEdit || widget.scopes.length > 1;
     _loadCreds();
@@ -234,6 +252,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
         put('base_url', baseUrl);
         put('provider', 'custom');
         put('api_mode', _apiMode);
+        put('reasoning_effort', _reasoning);
         final ke = _keyEnv.text.trim();
         if (ke.isNotEmpty && ke != '${e['key_env'] ?? ''}') payload['key_env'] = ke;
         // 「新建一个环境变量」在编辑态同样生效：把密钥值交给服务端写入 .env
@@ -258,6 +277,7 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
           model: model,
           baseUrl: baseUrl,
           apiMode: _apiMode,
+          reasoningEffort: _reasoning,
           // 新增时也尊重用户填的「新变量名」；留空才由服务端按 KEY 自动生成
           keyEnv: _keyEnv.text.trim(),
           newEnvValue: _useNewEnv ? _newEnv.text.trim() : '',
@@ -410,6 +430,35 @@ class _CandidateEditPageState extends State<CandidateEditPage> {
                       ? '走 /v1/responses，适合支持 Responses 协议的端点；'
                           '普通 OpenAI 兼容中转多数用聊天补全。'
                       : '走 /v1/chat/completions，兼容性最好。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 10.5,
+                    height: 1.5,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: _reasoning,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                    labelText: '思考模式',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final e in _reasoningLabels.entries)
+                      DropdownMenuItem(
+                        value: e.key,
+                        child: Text(e.value),
+                      ),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _reasoning = v ?? 'medium'),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '切到这个候选时写入人设的 agent.reasoning_effort；'
+                  '默认「中」，选「关闭思考」表示不向端点请求推理。',
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontSize: 10.5,
                     height: 1.5,
